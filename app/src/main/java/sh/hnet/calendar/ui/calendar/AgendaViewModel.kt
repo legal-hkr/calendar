@@ -31,16 +31,18 @@ sealed interface CalendarState {
     data object NoCalendars : CalendarState
 
     /**
-     * @param days The loaded days that have events, and today
+     * @param days The loaded days that have events, today and [anchor]
+     * @param anchor The day Agenda was last asked to go to; today at first
      * @param today Julian day of today in [zone]
      * @param now When the list was built or last ticked; decides which events are over
      */
-    data class Ready(val days: List<AgendaDay>, val calendars: Map<Long, CalendarInfo>, val today: Int, val now: Long, val zone: ZoneId) : CalendarState
+    data class Ready(val days: List<AgendaDay>, val calendars: Map<Long, CalendarInfo>, val anchor: Int, val today: Int, val now: Long, val zone: ZoneId) : CalendarState
 }
 
 /**
- * Agenda's data (SPEC §8): a window of days around today read from the provider, widened as the
- * list nears an end, and read again whenever the provider changes, the minute or the day turns.
+ * The main screen's state and Agenda's data (SPEC §8): a window of days around today – or the day
+ * the list was sent to – read from the provider, widened as the list nears an end, and read again
+ * whenever the provider changes, the minute or the day turns.
  */
 class AgendaViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as CalendarApplication
@@ -56,6 +58,8 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
     private var nothingEarlier = false
     private var nothingLater = false
     private var watching: Job? = null
+    /** The day the list was last asked to go to; 0 until then, which stands for today. */
+    private var anchor = 0
     /** Ids of the calendars shown, as of the last load. */
     private var shown = emptySet<Long>()
 
@@ -109,6 +113,27 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
         if (_state.value !is CalendarState.Ready) viewModelScope.launch { reload() }
     }
 
+    /**
+     * Go to date, Today, or coming from another view: the list is read anew around [day], which is
+     * listed even when empty. The screen scrolls there once the state names it as its anchor.
+     */
+    fun moveTo(day: Int) {
+        viewModelScope.launch {
+            lock.withLock {
+                if (_state.value !is CalendarState.Ready) return@withLock
+                anchor = day
+                // Within the days already read the list only gains the day's header; farther away it starts over there
+                if (day !in firstDay..lastDay) {
+                    firstDay = day - STEP
+                    lastDay = day + STEP
+                }
+                nothingEarlier = false
+                nothingLater = false
+                load()
+            }
+        }
+    }
+
     /** The list is near its start or its end: load further days, until some have events or [SEARCH_LIMIT] days were looked through. */
     fun extend(later: Boolean) {
         viewModelScope.launch {
@@ -147,13 +172,11 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
         }
         val zone = ZoneId.systemDefault()
         val today = JulianDay.of(LocalDate.now(zone))
+        if (anchor == 0) anchor = today
         if (firstDay == 0) {
-            firstDay = today - STEP
-            lastDay = today + STEP
+            firstDay = anchor - STEP
+            lastDay = anchor + STEP
         }
-        // Today is always listed, also after the window was left behind by the calendar
-        firstDay = minOf(firstDay, today)
-        lastDay = maxOf(lastDay, today)
         try {
             val calendars = CalendarChoices.apply(source.calendars(), choices.choices.first())
             if (calendars.isEmpty()) {
@@ -161,8 +184,8 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
                 return
             }
             shown = calendars.filter { it.shown }.mapTo(HashSet()) { it.id }
-            val days = Agenda.build(source.occurrences(firstDay, lastDay, shown), firstDay, lastDay, today)
-            _state.value = CalendarState.Ready(days, calendars.associateBy { it.id }, today, System.currentTimeMillis(), zone)
+            val days = Agenda.build(source.occurrences(firstDay, lastDay, shown), firstDay, lastDay, today, anchor = anchor)
+            _state.value = CalendarState.Ready(days, calendars.associateBy { it.id }, anchor, today, System.currentTimeMillis(), zone)
         } catch (_: SecurityException) {
             // Access was taken away between the check and the query
             _state.value = CalendarState.NoAccess

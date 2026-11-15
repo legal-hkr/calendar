@@ -26,12 +26,13 @@ object Agenda {
     /**
      * The days from [firstDay] to [lastDay] that have events, each with its rows (SPEC §8): an
      * event of several days is listed on each of them, all-day rows first, then by time. Empty days
-     * are left out, except [today], which is always there when in range. Declined events are left
-     * out unless [showDeclined].
+     * are left out, except [today] and [anchor] – the day the list was asked to go to –, which are
+     * always there when in range. Declined events are left out unless [showDeclined].
      */
-    fun build(occurrences: List<Occurrence>, firstDay: Int, lastDay: Int, today: Int, showDeclined: Boolean = false): List<AgendaDay> {
+    fun build(occurrences: List<Occurrence>, firstDay: Int, lastDay: Int, today: Int, showDeclined: Boolean = false, anchor: Int = today): List<AgendaDay> {
         val days = sortedMapOf<Int, MutableList<AgendaRow>>()
         if (today in firstDay..lastDay) days[today] = mutableListOf()
+        if (anchor in firstDay..lastDay) days[anchor] = mutableListOf()
         for (occurrence in occurrences) {
             if (occurrence.declined && !showDeclined) continue
             val start = occurrence.startDay

@@ -108,7 +108,7 @@ fun CalendarApp() {
                         (slideOutHorizontally(spatial) { shift } + fadeOut(fastEffects))
                 },
                 entryProvider = entryProvider<NavKey> {
-                    entry<Screen.Calendar> { CalendarScreen(onOpenSettings = { open(Screen.Settings) }) }
+                    entry<Screen.Calendar> { CalendarScreen(onOpenCalendars = { open(Screen.Calendars) }, onOpenSettings = { open(Screen.Settings) }) }
                     entry<Screen.Settings> {
                         SettingsRootScreen(
                             onBack = back,

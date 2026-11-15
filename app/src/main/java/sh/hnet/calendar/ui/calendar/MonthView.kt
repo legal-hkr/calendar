@@ -1,0 +1,467 @@
+package sh.hnet.calendar.ui.calendar
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.DayOfWeek
+import kotlin.math.abs
+import kotlinx.coroutines.flow.drop
+import sh.hnet.calendar.R
+import sh.hnet.calendar.model.Agenda
+import sh.hnet.calendar.model.CalendarColor
+import sh.hnet.calendar.model.CalendarInfo
+import sh.hnet.calendar.model.JulianDay
+import sh.hnet.calendar.model.Month
+import sh.hnet.calendar.model.MonthGrid
+import sh.hnet.calendar.model.Occurrence
+import sh.hnet.calendar.model.TileLines
+import sh.hnet.calendar.ui.theme.dimmedFill
+import sh.hnet.calendar.ui.theme.fill
+import sh.hnet.calendar.ui.theme.onFill
+import sh.hnet.calendar.ui.theme.outline
+import sh.hnet.calendar.ui.theme.text
+
+/** The pager's pages are the months of the years the date picker offers. */
+internal object MonthPages {
+    private const val FIRST_YEAR = 1900
+    private const val LAST_YEAR = 2100
+    const val COUNT = (LAST_YEAR - FIRST_YEAR + 1) * 12
+
+    /** The page of the month the Julian [day] is in. */
+    fun of(day: Int): Int = (Month.number(JulianDay.toDate(day)) - FIRST_YEAR * 12).coerceIn(0, COUNT - 1)
+
+    fun month(page: Int): Int = FIRST_YEAR * 12 + page
+
+    /** The day a month is entered on: today in the current month, else its first day. */
+    fun entryDay(page: Int, today: Int): Int = if (of(today) == page) today else JulianDay.of(Month.firstDate(month(page)))
+}
+
+/** A calendar color's values in this theme, read once for drawing. */
+internal data class TileColors(val fill: Color, val on: Color, val text: Color, val outline: Color, val dimmed: Color)
+
+/** The same map until a color changes (the theme, the wallpaper's colors), so the pages are not drawn anew for nothing. */
+@Composable
+private fun tilePalette(): Map<CalendarColor, TileColors> {
+    val colors = CalendarColor.entries.associateWith { TileColors(it.fill(), it.onFill(), it.text(), it.outline(), it.dimmedFill()) }
+    return remember(colors) { colors }
+}
+
+/**
+ * Month (SPEC §6, boards 01 and 02): a page per month, swiped sideways. With [eventList] off the
+ * full grid with tiles, where a tap on a day calls [onOpenDay]; with it on the compact grid with
+ * marks, where a tap chooses the day ([onFocus]) whose events are listed below. [focus] is the day
+ * the screen is at: the pager follows it, and a swipe moves it into the new month.
+ */
+@Composable
+fun MonthView(
+    state: CalendarState.Ready,
+    formats: CalendarFormats,
+    weekStart: DayOfWeek,
+    pager: PagerState,
+    eventList: Boolean,
+    focus: Int,
+    onFocus: (Int) -> Unit,
+    onOpenDay: (Int) -> Unit,
+    viewModel: MonthViewModel = viewModel(),
+) {
+    val events by viewModel.events.collectAsStateWithLifecycle()
+    val currentFocus by rememberUpdatedState(focus)
+    val currentToday by rememberUpdatedState(state.today)
+    val currentOnFocus by rememberUpdatedState(onFocus)
+
+    // Today, Go to date, a day chosen in another month: the pager goes there, with motion to a neighbor
+    LaunchedEffect(focus) {
+        val page = MonthPages.of(focus)
+        if (pager.targetPage != page) {
+            if (abs(page - pager.currentPage) == 1) pager.animateScrollToPage(page) else pager.scrollToPage(page)
+        }
+    }
+    // A swipe: the screen is at the new month. The first value is where the pager stood before the effect above moved it
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.settledPage }.drop(1).collect { page ->
+            if (MonthPages.of(currentFocus) != page) currentOnFocus(MonthPages.entryDay(page, currentToday))
+        }
+    }
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.currentPage }.collect { viewModel.show(MonthPages.month(it)) }
+    }
+
+    val palette = tilePalette()
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().height(24.dp), verticalAlignment = Alignment.CenterVertically) {
+            repeat(7) { column ->
+                Text(
+                    formats.weekday(weekStart.plus(column.toLong())),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        HorizontalPager(
+            state = pager,
+            key = { it },
+            // The neighbors are ready before a swipe starts
+            beyondViewportPageCount = 1,
+            // The full grid shares all the height left; the compact one has rows of 48 dp
+            modifier = if (eventList) Modifier.fillMaxWidth().height(COMPACT_ROW * Month.WEEKS) else Modifier.fillMaxWidth().weight(1f).navigationBarsPadding(),
+        ) { page ->
+            val number = MonthPages.month(page)
+            val grid = remember(events, number, weekStart) {
+                Month.build(if (events.covers(number)) events.occurrences else emptyList(), Month.gridStart(number, weekStart))
+            }
+            Box(Modifier.fillMaxSize()) {
+                if (eventList) {
+                    CompactMonth(grid, number, focus, state, palette)
+                    DayTargets(grid.firstDay, formats, onFocus)
+                } else {
+                    FullMonth(grid, number, state, palette, formats)
+                    DayTargets(grid.firstDay, formats, onOpenDay)
+                }
+            }
+        }
+        if (eventList) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            DayList(focus, events, state, formats)
+        }
+    }
+}
+
+/** The days as targets over the drawn grid (SPEC §6.1, §20): the whole cell is one. */
+@Composable
+private fun DayTargets(firstDay: Int, formats: CalendarFormats, onDay: (Int) -> Unit) {
+    val names = remember(firstDay, formats) {
+        List(Month.WEEKS * 7) { formats.capitalize(formats.day(JulianDay.toDate(firstDay + it), Int.MIN_VALUE)) }
+    }
+    Column(Modifier.fillMaxSize()) {
+        repeat(Month.WEEKS) { week ->
+            Row(Modifier.fillMaxWidth().weight(1f)) {
+                repeat(7) { column ->
+                    val index = week * 7 + column
+                    Box(Modifier.weight(1f).fillMaxHeight().clickable(role = Role.Button) { onDay(firstDay + index) }.semantics { contentDescription = names[index] })
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The full grid (SPEC §6.1) with the tiles of §5, drawn in one pass: the lines a tile gets depend
+ * on how its title wraps, so the text is measured here anyway.
+ */
+@Composable
+private fun FullMonth(grid: MonthGrid, number: Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats) {
+    val measurer = rememberTextMeasurer(cacheSize = 128)
+    val scheme = MaterialTheme.colorScheme
+    val noTitle = stringResource(R.string.label_no_title)
+    val moreText = stringResource(R.string.label_more_events)
+    val numberStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
+    val titleStyle = tileTitleStyle()
+    val timeStyle = titleStyle.copy(fontWeight = FontWeight.Normal, hyphens = Hyphens.None)
+    Spacer(
+        Modifier.fillMaxSize().drawWithCache {
+            val painter = TilePainter(measurer, palette, state.calendars, state.now, state.today, formats, noTitle, titleStyle, timeStyle, this)
+            val ops = ArrayList<DrawScope.() -> Unit>()
+            val rowHeight = size.height / Month.WEEKS
+            val columnWidth = size.width / 7
+            val line = painter.line
+            val gap = 2.dp.toPx()
+            val oneLine = TILE_PADDING_VERTICAL.toPx() * 2 + line
+            val top = 30.dp.toPx()
+            val side = 1.dp.toPx()
+            val room = rowHeight - top - gap
+            // How many one-line tiles a cell holds: four at the board's size (SPEC §6.1)
+            val slots = ((room + gap) / (oneLine + gap)).toInt().coerceAtLeast(1)
+            val tileWidth = columnWidth - 2 * side
+            val titleWidth = (tileWidth - TILE_PADDING_HORIZONTAL.toPx() * 2).toInt().coerceAtLeast(1)
+            val circle = 12.dp.toPx()
+            val stroke = 1.dp.toPx()
+
+            grid.weeks.forEachIndexed { index, week ->
+                val rowTop = index * rowHeight
+                ops += { drawLine(scheme.outlineVariant, Offset(0f, rowTop + stroke / 2), Offset(size.width, rowTop + stroke / 2), stroke) }
+                for (column in 0 until 7) {
+                    val day = week.firstDay + column
+                    val date = JulianDay.toDate(day)
+                    val isToday = day == state.today
+                    val center = Offset((column + 0.5f) * columnWidth, rowTop + 3.dp.toPx() + circle)
+                    val color = if (isToday) scheme.onPrimary else if (Month.number(date) != number) scheme.outline else scheme.onSurface
+                    val text = measurer.measure(date.dayOfMonth.toString(), if (isToday) numberStyle.copy(fontWeight = FontWeight.Medium) else numberStyle, maxLines = 1)
+                    ops += {
+                        if (isToday) drawCircle(scheme.primary, circle, center)
+                        drawText(text, color, Offset(center.x - text.size.width / 2f, center.y - text.size.height / 2f))
+                    }
+                }
+                val fill = Month.fill(week, slots)
+                for (bar in fill.bars) {
+                    val left = bar.firstColumn * columnWidth + if (bar.startsBefore) 0f else side
+                    val right = (bar.lastColumn + 1) * columnWidth - if (bar.endsAfter) 0f else side
+                    val title = painter.title(bar.occurrence, (right - left - TILE_PADDING_HORIZONTAL.toPx() * 2).toInt().coerceAtLeast(1), wrap = false)
+                    ops += painter.tile(bar.occurrence, left, rowTop + top + bar.lane * (oneLine + gap), right - left, oneLine, TileLines(false, 1), title, bar.startsBefore, bar.endsAfter)
+                }
+                for (column in 0 until 7) {
+                    val cell = fill.cells[column]
+                    val own = week.days[column].take(cell.shown)
+                    val left = column * columnWidth + side
+                    var y = rowTop + top + cell.base * (oneLine + gap)
+                    // The lines left once every tile has one (SPEC §6.1): first for the times, then for the titles
+                    val spare = if (cell.more == 0 && own.isNotEmpty()) ((room - cell.base * (oneLine + gap) - (own.size * oneLine + (own.size - 1) * gap)) / line).toInt() else 0
+                    val wrapped = if (spare > 0) own.map { painter.title(it, titleWidth, wrap = true) } else emptyList()
+                    val lines = if (spare > 0) Month.lines(spare, own.map { !it.allDay }, wrapped.map { it.lineCount }) else own.map { TileLines(false, 1) }
+                    own.forEachIndexed { tile, occurrence ->
+                        val height = TILE_PADDING_VERTICAL.toPx() * 2 + lines[tile].count * line
+                        // A title on one line is clipped where the tile ends, not broken at a syllable
+                        val title = if (lines[tile].title > 1) wrapped[tile] else painter.title(occurrence, titleWidth, wrap = false)
+                        ops += painter.tile(occurrence, left, y, tileWidth, height, lines[tile], title)
+                        y += height + gap
+                    }
+                    if (cell.more > 0) {
+                        val more = measurer.measure(moreText.format(cell.more), timeStyle.copy(fontWeight = FontWeight.Medium), maxLines = 1)
+                        val moreTop = rowTop + top + (slots - 1) * (oneLine + gap) + TILE_PADDING_VERTICAL.toPx()
+                        ops += { drawText(more, scheme.onSurfaceVariant, Offset(left + TILE_PADDING_HORIZONTAL.toPx(), moreTop)) }
+                    }
+                }
+            }
+            onDrawBehind { for (op in ops) op() }
+        },
+    )
+}
+
+/**
+ * The compact grid (SPEC §6.3): the day's number – today and the chosen day in circles –, a dot
+ * per calendar under it, and a thin bar for an event of several days.
+ */
+@Composable
+private fun CompactMonth(grid: MonthGrid, number: Int, focus: Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>) {
+    val measurer = rememberTextMeasurer(cacheSize = 64)
+    val scheme = MaterialTheme.colorScheme
+    val numberStyle = MaterialTheme.typography.bodyMedium
+    val plusStyle = tileTitleStyle()
+    Spacer(
+        Modifier.fillMaxSize().drawWithCache {
+            val ops = ArrayList<DrawScope.() -> Unit>()
+            val rowHeight = size.height / Month.WEEKS
+            val columnWidth = size.width / 7
+            val circle = 14.dp.toPx()
+            val dot = 6.dp.toPx()
+            val gap = 2.dp.toPx()
+            val plus = measurer.measure("+", plusStyle, maxLines = 1)
+            fun colors(occurrence: Occurrence) = palette.getValue(state.calendars[occurrence.calendarId]?.color ?: CalendarColor.GRAPHITE)
+
+            grid.weeks.forEachIndexed { index, week ->
+                val rowTop = index * rowHeight
+                for (column in 0 until 7) {
+                    val day = week.firstDay + column
+                    val date = JulianDay.toDate(day)
+                    val isToday = day == state.today
+                    val chosen = day == focus
+                    val center = Offset((column + 0.5f) * columnWidth, rowTop + 2.dp.toPx() + circle)
+                    val color = when {
+                        isToday -> scheme.onPrimary
+                        chosen -> scheme.onSecondaryContainer
+                        Month.number(date) != number -> scheme.outline
+                        else -> scheme.onSurface
+                    }
+                    val text = measurer.measure(date.dayOfMonth.toString(), if (isToday) numberStyle.copy(fontWeight = FontWeight.Medium) else numberStyle, maxLines = 1)
+                    val marks = Month.marks(week, column, state.now, state.today)
+                    val dots = marks.dots.map { mark -> palette.getValue(state.calendars[mark.calendarId]?.color ?: CalendarColor.GRAPHITE).let { if (mark.past) it.dimmed else it.fill } }
+                    val width = dots.size * dot + (dots.size - 1).coerceAtLeast(0) * gap + if (marks.more) plus.size.width + (if (dots.isEmpty()) 0f else gap) else 0f
+                    val marksTop = rowTop + 32.dp.toPx()
+                    ops += {
+                        if (isToday) drawCircle(scheme.primary, circle, center) else if (chosen) drawCircle(scheme.secondaryContainer, circle, center)
+                        drawText(text, color, Offset(center.x - text.size.width / 2f, center.y - text.size.height / 2f))
+                        var x = center.x - width / 2
+                        for (fill in dots) {
+                            drawCircle(fill, dot / 2, Offset(x + dot / 2, marksTop + dot / 2))
+                            x += dot + gap
+                        }
+                        if (marks.more) drawText(plus, scheme.onSurfaceVariant, Offset(x, marksTop + dot / 2 - plus.size.height / 2f))
+                    }
+                }
+                // One line of bars fits under the dots; longer events below it are dots (Month.marks)
+                for (bar in week.bars) {
+                    if (bar.lane != 0) continue
+                    val inset = 6.dp.toPx()
+                    val left = bar.firstColumn * columnWidth + if (bar.startsBefore) 0f else inset
+                    val right = (bar.lastColumn + 1) * columnWidth - if (bar.endsAfter) 0f else inset
+                    val fill = colors(bar.occurrence).let { if (bar.occurrence.isPast(state.now, state.today) || bar.occurrence.canceled) it.dimmed else it.fill }
+                    ops += { drawRoundRect(fill, Offset(left, rowTop + 41.dp.toPx()), Size(right - left, 4.dp.toPx()), CornerRadius(2.dp.toPx())) }
+                }
+            }
+            onDrawBehind { for (op in ops) op() }
+        },
+    )
+}
+
+/** The chosen day under the compact grid (SPEC §6.3): its header and rows as in Agenda. The list scrolls, the grid stays. */
+@Composable
+private fun DayList(day: Int, events: MonthEvents, state: CalendarState.Ready, formats: CalendarFormats) {
+    val loaded = events.covers(Month.number(JulianDay.toDate(day)))
+    val rows = remember(events, day, state.today) {
+        if (loaded) Agenda.build(events.occurrences, day, day, state.today).firstOrNull()?.rows.orEmpty() else emptyList()
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        // Another day starts at its top
+        key(day) {
+            LazyColumn(
+                modifier = Modifier.widthIn(max = 600.dp).fillMaxSize(),
+                contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            ) {
+                item(key = "header", contentType = "header") { DayHeader(day, state.today, formats) }
+                if (rows.isEmpty()) {
+                    if (loaded) item(key = "nothing", contentType = "nothing") { NothingPlanned() }
+                } else {
+                    itemsIndexed(rows, key = { _, row -> row.key }, contentType = { _, _ -> "event" }) { index, row ->
+                        EventRow(
+                            row = row,
+                            color = state.calendars[row.occurrence.calendarId]?.color ?: CalendarColor.GRAPHITE,
+                            past = row.occurrence.isPast(state.now, state.today),
+                            formats = formats,
+                            shape = groupShape(index == 0, index == rows.lastIndex),
+                            modifier = Modifier.padding(top = if (index == 0) 0.dp else 2.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The tile's text (SPEC §5.1): 11 sp on lines of 13 sp, the title in medium weight, wrapped with the language's hyphenation. */
+@Composable
+private fun tileTitleStyle(): TextStyle = MaterialTheme.typography.labelSmall.copy(
+    fontSize = 11.sp,
+    lineHeight = 13.sp,
+    letterSpacing = 0.sp,
+    fontWeight = FontWeight.Medium,
+    hyphens = Hyphens.Auto,
+    lineBreak = LineBreak.Paragraph,
+)
+
+private val TILE_PADDING_VERTICAL = 1.dp
+private val TILE_PADDING_HORIZONTAL = 3.dp
+private val COMPACT_ROW = 48.dp
+
+/**
+ * Draws the shared event tile (SPEC §5): radius 4 dp, the start time on a line of its own when it
+ * was given one, then the title on its lines, clipped without an ellipsis; the states of §5.3.
+ */
+private class TilePainter(
+    private val measurer: TextMeasurer,
+    private val palette: Map<CalendarColor, TileColors>,
+    private val calendars: Map<Long, CalendarInfo>,
+    private val now: Long,
+    private val today: Int,
+    private val formats: CalendarFormats,
+    private val noTitle: String,
+    private val titleStyle: TextStyle,
+    private val timeStyle: TextStyle,
+    density: Density,
+) {
+    /** The height of a line of tile text, as the text engine lays it out. */
+    val line: Float = measurer.measure("0", titleStyle, maxLines = 1).size.height.toFloat()
+    private val radius = with(density) { CornerRadius(4.dp.toPx()) }
+    private val paddingHorizontal = with(density) { TILE_PADDING_HORIZONTAL.toPx() }
+    private val paddingVertical = with(density) { TILE_PADDING_VERTICAL.toPx() }
+    private val stroke = with(density) { 1.dp.toPx() }
+    private val dashes = with(density) { PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx())) }
+
+    /** The title laid out in [width]: over up to three lines for a tile, on one line for a bar. */
+    fun title(occurrence: Occurrence, width: Int, wrap: Boolean): TextLayoutResult = measurer.measure(
+        occurrence.title.ifEmpty { noTitle },
+        titleStyle,
+        overflow = TextOverflow.Clip,
+        softWrap = wrap,
+        maxLines = if (wrap) Month.MAX_TITLE_LINES else 1,
+        constraints = Constraints(maxWidth = width),
+    )
+
+    fun tile(occurrence: Occurrence, left: Float, top: Float, width: Float, height: Float, lines: TileLines, title: TextLayoutResult, flatStart: Boolean = false, flatEnd: Boolean = false): DrawScope.() -> Unit {
+        val colors = palette.getValue(calendars[occurrence.calendarId]?.color ?: CalendarColor.GRAPHITE)
+        val canceled = occurrence.canceled
+        val outlined = occurrence.tentative && !canceled
+        val dimmed = canceled || occurrence.isPast(now, today)
+        val ink = if (outlined) colors.outline else if (dimmed) colors.text else colors.on
+        // The outline lies inside the tile's bounds
+        val inset = if (outlined) stroke / 2 else 0f
+        val start = if (flatStart) CornerRadius.Zero else radius
+        val end = if (flatEnd) CornerRadius.Zero else radius
+        val path = Path().apply { addRoundRect(RoundRect(left + inset, top + inset, left + width - inset, top + height - inset, start, end, end, start)) }
+        val time = if (lines.time) measurer.measure(formats.tileTime(occurrence.begin), timeStyle, overflow = TextOverflow.Clip, softWrap = false, maxLines = 1) else null
+        val textLeft = left + paddingHorizontal
+        val textRight = left + width - paddingHorizontal
+        val titleTop = top + paddingVertical + if (time != null) line else 0f
+        val titleBottom = titleTop + title.getLineBottom(minOf(lines.title, title.lineCount) - 1)
+        return {
+            if (outlined) drawPath(path, colors.outline, style = Stroke(stroke, pathEffect = dashes)) else drawPath(path, if (dimmed) colors.dimmed else colors.fill)
+            if (time != null) clipRect(textLeft, top, textRight, top + height) { drawText(time, ink, Offset(textLeft, top + paddingVertical)) }
+            clipRect(textLeft, titleTop, textRight, minOf(titleBottom, top + height)) {
+                drawText(title, ink, Offset(textLeft, titleTop), textDecoration = if (canceled) TextDecoration.LineThrough else null)
+            }
+        }
+    }
+}

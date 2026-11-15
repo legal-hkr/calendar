@@ -23,6 +23,14 @@
     <string name="label_state_canceled">Odwołane</string>
     <string name="label_no_title">(Bez tytułu)</string>
     <string name="msg_no_calendars">W telefonie nie ma jeszcze żadnego kalendarza</string>
+    <string name="content_description_go_to_date">Przejdź do daty</string>
+    <string name="title_go_to_date">Przejdź do daty</string>
+    <string name="button_go">Przejdź</string>
+    <string name="content_description_today">Dzisiaj</string>
+    <string name="content_description_view_menu">Widok i menu</string>
+    <string name="menu_view_month">Miesiąc</string>
+    <string name="menu_view_agenda">Harmonogram</string>
+    <string name="menu_event_list">Lista wydarzeń</string>
 
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Dostęp do kalendarzy</string>

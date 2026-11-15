@@ -1,6 +1,5 @@
 package sh.hnet.calendar.ui.calendar
 
-import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,8 +41,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -51,12 +48,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import sh.hnet.calendar.R
 import sh.hnet.calendar.model.AgendaDay
 import sh.hnet.calendar.model.AgendaRow
@@ -96,46 +90,34 @@ private fun items(days: List<AgendaDay>): List<AgendaItem> = buildList {
     }
 }
 
-/** Dates and times in the app's language and the system's clock (SPEC §2.8). */
-private class AgendaFormats(val locale: Locale, hours24: Boolean, val zone: ZoneId) {
-    val time: DateTimeFormatter = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, if (hours24) "Hm" else "hm"), locale)
-    val day: DateTimeFormatter = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "EEEEMMMMd"), locale)
-    val dayWithYear: DateTimeFormatter = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "EEEEMMMMdy"), locale)
-    val month: DateTimeFormatter = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "LLLLy"), locale)
-
-    fun time(millis: Long): String = time.format(Instant.ofEpochMilli(millis).atZone(zone))
-}
-
 /**
- * Agenda (SPEC §8, board 05): days with their events as segmented groups, today first on opening,
- * endless both ways – [onNearEnd] asks for more days (true: later ones) when the list nears an
- * end. [onPeriod] gets the month and year the list is at, for the top bar.
+ * Agenda (SPEC §8, board 05): days with their events as segmented groups, endless both ways –
+ * [onNearEnd] asks for more days (true: later ones) when the list nears an end. It goes to the day
+ * [target] whenever [jump] changes, once the state names that day as its anchor – so it opens on
+ * today –, and tells [onDay] the day it is at.
  */
 @Composable
-fun AgendaList(state: CalendarState.Ready, onPeriod: (String) -> Unit, onNearEnd: (later: Boolean) -> Unit) {
-    val context = LocalContext.current
-    val locale = LocalConfiguration.current.locales[0]
-    val hours24 = DateFormat.is24HourFormat(context)
-    val formats = remember(locale, hours24, state.zone) { AgendaFormats(locale, hours24, state.zone) }
+fun AgendaList(state: CalendarState.Ready, formats: CalendarFormats, target: Int, jump: Int, onDay: (Int) -> Unit, onNearEnd: (later: Boolean) -> Unit) {
     val items = remember(state.days) { items(state.days) }
     val list = rememberLazyListState()
-
-    // Opens with today at the top; later the list keeps its place by the rows' keys
-    var placed by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (!placed) {
-            val today = items.indexOfFirst { it is AgendaItem.Header && it.day == state.today }
-            if (today > 0) list.scrollToItem(today)
-            placed = true
-        }
-    }
-
+    val currentState by rememberUpdatedState(state)
     val currentItems by rememberUpdatedState(items)
-    val currentOnPeriod by rememberUpdatedState(onPeriod)
-    LaunchedEffect(list, formats) {
-        snapshotFlow { currentItems.getOrNull(list.firstVisibleItemIndex)?.day }.distinctUntilChanged().collect { day ->
-            if (day != null) currentOnPeriod(formats.month.format(JulianDay.toDate(day)).replaceFirstChar { it.titlecase(formats.locale) })
-        }
+
+    // The last jump the list made; kept, so coming back to the screen leaves the list where it was
+    var handled by rememberSaveable { mutableIntStateOf(-1) }
+    LaunchedEffect(jump) {
+        if (handled == jump) return@LaunchedEffect
+        val ready = snapshotFlow { currentState }.first { it.anchor == target }
+        val index = items(ready.days).indexOfFirst { it is AgendaItem.Header && it.day >= target }
+        if (index >= 0) list.scrollToItem(index)
+        handled = jump
+    }
+    val placed = handled == jump
+
+    val currentOnDay by rememberUpdatedState(onDay)
+    LaunchedEffect(list, placed) {
+        if (!placed) return@LaunchedEffect
+        snapshotFlow { currentItems.getOrNull(list.firstVisibleItemIndex)?.day }.distinctUntilChanged().collect { day -> if (day != null) currentOnDay(day) }
     }
     // Near an end: more days. The count is part of the value, so a load that changed little asks again
     val currentOnNearEnd by rememberUpdatedState(onNearEnd)
@@ -151,7 +133,6 @@ fun AgendaList(state: CalendarState.Ready, onPeriod: (String) -> Unit, onNearEnd
         }.distinctUntilChanged().filter { it.first }.collect { currentOnNearEnd(true) }
     }
 
-    val thisYear = remember(state.today) { JulianDay.toDate(state.today).year }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
             state = list,
@@ -161,33 +142,14 @@ fun AgendaList(state: CalendarState.Ready, onPeriod: (String) -> Unit, onNearEnd
         ) {
             items(items.size, key = { items[it].key }, contentType = { items[it]::class }) { index ->
                 when (val item = items[index]) {
-                    is AgendaItem.Header -> {
-                        val date = JulianDay.toDate(item.day)
-                        val name = (if (date.year == thisYear) formats.day else formats.dayWithYear).format(date)
-                        val text = when (item.day) {
-                            state.today -> stringResource(R.string.label_day_header_today, name)
-                            state.today + 1 -> stringResource(R.string.label_day_header_tomorrow, name)
-                            else -> name.replaceFirstChar { it.titlecase(formats.locale) }
-                        }
-                        Text(
-                            text,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            // 16 dp between day groups; the first header sits right under the top bar
-                            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = if (index == 0) 4.dp else 16.dp, bottom = 8.dp).semantics { heading() },
-                        )
-                    }
-                    is AgendaItem.Nothing -> Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = groupShape(first = true, last = true), modifier = Modifier.fillMaxWidth()) {
-                        Box(Modifier.heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.CenterStart) {
-                            Text(stringResource(R.string.label_nothing_planned), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+                    // 16 dp between day groups; the first header sits right under the top bar
+                    is AgendaItem.Header -> DayHeader(item.day, state.today, formats, Modifier.padding(top = if (index == 0) 4.dp else 16.dp))
+                    is AgendaItem.Nothing -> NothingPlanned()
                     is AgendaItem.Event -> EventRow(
                         row = item.row,
                         color = state.calendars[item.row.occurrence.calendarId]?.color ?: CalendarColor.GRAPHITE,
                         past = item.row.occurrence.isPast(state.now, state.today),
                         formats = formats,
-                        hours24 = hours24,
                         shape = groupShape(item.first, item.last),
                         modifier = Modifier.padding(top = if (item.first) 0.dp else 2.dp),
                     )
@@ -197,8 +159,35 @@ fun AgendaList(state: CalendarState.Ready, onPeriod: (String) -> Unit, onNearEnd
     }
 }
 
+/** A day's header (SPEC §8.2): "Today – Wednesday, November 18", "Tomorrow – …", then the date alone, with the year outside this one. */
+@Composable
+internal fun DayHeader(day: Int, today: Int, formats: CalendarFormats, modifier: Modifier = Modifier) {
+    val name = formats.day(JulianDay.toDate(day), JulianDay.toDate(today).year)
+    val text = when (day) {
+        today -> stringResource(R.string.label_day_header_today, name)
+        today + 1 -> stringResource(R.string.label_day_header_tomorrow, name)
+        else -> formats.capitalize(name)
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 8.dp).semantics { heading() },
+    )
+}
+
+/** The one row of a day without events. */
+@Composable
+internal fun NothingPlanned() {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = groupShape(first = true, last = true), modifier = Modifier.fillMaxWidth()) {
+        Box(Modifier.heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.CenterStart) {
+            Text(stringResource(R.string.label_nothing_planned), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 /** Segmented rows: 20 dp at the group's outer corners, 6 dp between rows (SPEC §8.3). */
-private fun groupShape(first: Boolean, last: Boolean): Shape {
+internal fun groupShape(first: Boolean, last: Boolean): Shape {
     val top = if (first) 20.dp else 6.dp
     val bottom = if (last) 20.dp else 6.dp
     return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
@@ -209,7 +198,7 @@ private fun groupShape(first: Boolean, last: Boolean): Shape {
  * line under it – the state when it has one to tell, else which day of several, else the place.
  */
 @Composable
-private fun EventRow(row: AgendaRow, color: CalendarColor, past: Boolean, formats: AgendaFormats, hours24: Boolean, shape: Shape, modifier: Modifier = Modifier) {
+internal fun EventRow(row: AgendaRow, color: CalendarColor, past: Boolean, formats: CalendarFormats, shape: Shape, modifier: Modifier = Modifier) {
     val occurrence = row.occurrence
     val supporting = when {
         occurrence.canceled -> stringResource(R.string.label_state_canceled)
@@ -230,7 +219,7 @@ private fun EventRow(row: AgendaRow, color: CalendarColor, past: Boolean, format
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.End,
                 // A 12-hour time with its marker needs more room than "09:30"
-                modifier = Modifier.width(if (hours24) 40.dp else 60.dp),
+                modifier = Modifier.width(if (formats.hours24) 40.dp else 60.dp),
             )
             ColorBar(color, past = past, outlined = occurrence.tentative, modifier = Modifier.padding(start = 10.dp, end = 12.dp).width(4.dp).fillMaxHeight())
             Column(Modifier.weight(1f)) {

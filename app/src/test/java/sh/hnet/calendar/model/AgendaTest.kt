@@ -137,4 +137,12 @@ class AgendaTest {
         assertTrue(base.copy(answer = Answer.TENTATIVE).tentative)
         assertTrue(base.copy(status = EventStatus.CANCELED).canceled)
     }
+
+    @Test
+    fun theDayTheListWasSentToIsListedEvenWhenEmpty() {
+        val march5 = day(2027, 3, 5)
+        val days = Agenda.build(listOf(allDay(1, "Later", LocalDate.of(2027, 3, 9))), march5 - 30, march5 + 30, today, anchor = march5)
+        assertEquals(listOf(march5, day(2027, 3, 9)), days.map { it.day })
+        assertTrue(days.first().rows.isEmpty())
+    }
 }

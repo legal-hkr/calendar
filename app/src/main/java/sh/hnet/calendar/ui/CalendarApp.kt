@@ -42,6 +42,7 @@ import sh.hnet.calendar.CalendarApplication
 import sh.hnet.calendar.R
 import sh.hnet.calendar.about.WhatsNew
 import sh.hnet.calendar.ui.calendar.CalendarScreen
+import sh.hnet.calendar.ui.calendars.CalendarsScreen
 import sh.hnet.calendar.ui.components.CalendarAccess
 import sh.hnet.calendar.ui.settings.AboutScreen
 import sh.hnet.calendar.ui.settings.AppLicenseScreen
@@ -111,11 +112,13 @@ fun CalendarApp() {
                     entry<Screen.Settings> {
                         SettingsRootScreen(
                             onBack = back,
+                            onOpenCalendars = { open(Screen.Calendars) },
                             onOpenLanguage = { open(Screen.SettingsLanguage) },
                             onOpenReset = { open(Screen.SettingsReset) },
                             onOpenAbout = { open(Screen.SettingsAbout) },
                         )
                     }
+                    entry<Screen.Calendars> { CalendarsScreen(onBack = back) }
                     entry<Screen.SettingsLanguage> { LanguageScreen(onBack = back) }
                     entry<Screen.SettingsReset> { ResetScreen(onBack = back) }
                     entry<Screen.SettingsAbout> {

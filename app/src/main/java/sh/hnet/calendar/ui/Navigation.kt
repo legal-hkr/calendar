@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 sealed interface Screen : NavKey {
     @Serializable data object Calendar : Screen
     @Serializable data object Settings : Screen
+    @Serializable data object Calendars : Screen
     @Serializable data object SettingsLanguage : Screen
     @Serializable data object SettingsReset : Screen
     @Serializable data object SettingsAbout : Screen

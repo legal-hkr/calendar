@@ -2,16 +2,36 @@ package sh.hnet.calendar.model
 
 import java.time.LocalDate
 
-/** A calendar as the system's calendar provider lists it. */
+/**
+ * A calendar as the system's calendar provider lists it. [color] and [shown] come from the
+ * provider (the palette color nearest to the account's, the provider's "visible") until the
+ * user's own choices are laid over them ([CalendarChoices.apply]).
+ */
 data class CalendarInfo(
     val id: Long,
+    /** What the user's choices are kept under: account and the calendar's own name there, which outlive the provider's row id. */
+    val key: String,
     val name: String,
     val accountName: String,
     val accountType: String,
     /** The palette color the calendar is shown in. */
     val color: CalendarColor,
     val writable: Boolean,
-)
+    /** Whether its events are shown in the app. */
+    val shown: Boolean = true,
+    /** False for a calendar its account does not sync. */
+    val synced: Boolean = true,
+) {
+    /** A calendar that lives only on the phone. */
+    val local: Boolean get() = accountType == LOCAL_ACCOUNT_TYPE
+
+    companion object {
+        /** `CalendarContract.ACCOUNT_TYPE_LOCAL`. */
+        const val LOCAL_ACCOUNT_TYPE = "LOCAL"
+
+        fun key(accountType: String, accountName: String, name: String): String = "$accountType|$accountName|$name"
+    }
+}
 
 /** The event's own status. */
 enum class EventStatus { CONFIRMED, TENTATIVE, CANCELED }

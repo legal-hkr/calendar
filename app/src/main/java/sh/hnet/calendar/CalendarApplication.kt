@@ -3,6 +3,7 @@ package sh.hnet.calendar
 import android.app.Application
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import sh.hnet.calendar.data.CalendarChoiceStore
 import sh.hnet.calendar.data.CalendarSource
 
 class CalendarApplication : Application() {
@@ -13,4 +14,7 @@ class CalendarApplication : Application() {
 
     /** The system's calendar provider. */
     val calendars: CalendarSource by lazy { CalendarSource(this) }
+
+    /** The user's color and visibility per calendar. */
+    val calendarChoices: CalendarChoiceStore by lazy { CalendarChoiceStore(this) }
 }

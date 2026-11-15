@@ -33,6 +33,25 @@
     <string name="button_open_app_settings">Otwórz ustawienia aplikacji</string>
     <string name="msg_no_access_note">Dostęp można włączyć w ustawieniach systemu: Uprawnienia › Kalendarz.</string>
 
+    <!-- Calendars and their colors -->
+    <string name="title_calendars">Kalendarze</string>
+    <string name="label_on_this_phone">W tym telefonie</string>
+    <string name="label_read_only">Tylko do odczytu</string>
+    <string name="label_not_synced">Bez synchronizacji</string>
+    <string name="title_color_of">Kolor: %s</string>
+    <string name="color_red">Czerwony</string>
+    <string name="color_orange">Pomarańczowy</string>
+    <string name="color_amber">Bursztynowy</string>
+    <string name="color_olive">Oliwkowy</string>
+    <string name="color_green">Zielony</string>
+    <string name="color_teal">Morski</string>
+    <string name="color_sky">Błękitny</string>
+    <string name="color_blue">Niebieski</string>
+    <string name="color_violet">Fioletowy</string>
+    <string name="color_magenta">Purpurowy</string>
+    <string name="color_raspberry">Malinowy</string>
+    <string name="color_graphite">Grafitowy</string>
+
     <!-- Settings -->
     <string name="title_settings">Ustawienia</string>
     <string name="content_description_settings">Ustawienia</string>

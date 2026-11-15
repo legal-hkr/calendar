@@ -1,6 +1,7 @@
 package sh.hnet.calendar.data
 
 import android.Manifest
+import android.accounts.AccountManager
 import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
@@ -45,20 +46,47 @@ class CalendarSource(private val context: Context) {
         awaitClose { resolver.unregisterContentObserver(observer) }
     }.conflate()
 
-    /** Every calendar on the phone, in the provider's order of accounts and names. */
+    private val accountApps = HashMap<String, String>()
+
+    /**
+     * The name of the app an account type belongs to ("DAVx⁵"), as its account provider names
+     * itself; null when the system doesn't tell.
+     */
+    fun accountApp(accountType: String): String? = synchronized(accountApps) {
+        accountApps.getOrPut(accountType) {
+            val description = AccountManager.get(context).authenticatorTypes.firstOrNull { it.type == accountType }
+            val packages = context.packageManager
+            description?.let { found ->
+                runCatching { packages.getText(found.packageName, found.labelId, null)?.toString() }.getOrNull()?.takeIf { it.isNotBlank() }
+                    ?: runCatching { packages.getApplicationLabel(packages.getApplicationInfo(found.packageName, 0)).toString() }.getOrNull()
+            }.orEmpty()
+        }.ifEmpty { null }
+    }
+
+    /** Every calendar on the phone, ordered by account and name, as the provider has them: without the user's choices of color and visibility. */
     suspend fun calendars(): List<CalendarInfo> = withContext(Dispatchers.IO) {
-        val projection = arrayOf(Calendars._ID, Calendars.CALENDAR_DISPLAY_NAME, Calendars.ACCOUNT_NAME, Calendars.ACCOUNT_TYPE, Calendars.CALENDAR_COLOR, Calendars.CALENDAR_ACCESS_LEVEL)
+        val projection = arrayOf(
+            Calendars._ID, Calendars.CALENDAR_DISPLAY_NAME, Calendars.ACCOUNT_NAME, Calendars.ACCOUNT_TYPE, Calendars.CALENDAR_COLOR,
+            Calendars.CALENDAR_ACCESS_LEVEL, Calendars.NAME, Calendars.VISIBLE, Calendars.SYNC_EVENTS,
+        )
         val order = "${Calendars.ACCOUNT_NAME} COLLATE LOCALIZED, ${Calendars.CALENDAR_DISPLAY_NAME} COLLATE LOCALIZED"
         val result = mutableListOf<CalendarInfo>()
         resolver.query(Calendars.CONTENT_URI, projection, "${Calendars.DELETED} = 0", null, order)?.use { cursor ->
             while (cursor.moveToNext()) {
+                val name = cursor.getString(1).orEmpty()
+                val accountName = cursor.getString(2).orEmpty()
+                val accountType = cursor.getString(3).orEmpty()
                 result += CalendarInfo(
                     id = cursor.getLong(0),
-                    name = cursor.getString(1).orEmpty(),
-                    accountName = cursor.getString(2).orEmpty(),
-                    accountType = cursor.getString(3).orEmpty(),
+                    // The account's own name for the calendar (its address, for DAVx⁵) stays when the calendar is renamed
+                    key = CalendarInfo.key(accountType, accountName, cursor.getString(6)?.takeIf { it.isNotEmpty() } ?: name),
+                    name = name,
+                    accountName = accountName,
+                    accountType = accountType,
                     color = CalendarColor.nearest(cursor.getInt(4)),
                     writable = cursor.getInt(5) >= Calendars.CAL_ACCESS_CONTRIBUTOR,
+                    shown = cursor.getInt(7) != 0,
+                    synced = cursor.getInt(8) != 0,
                 )
             }
         }
@@ -66,10 +94,11 @@ class CalendarSource(private val context: Context) {
     }
 
     /**
-     * The occurrences touching the Julian days [firstDay]..[lastDay] in the calendars the provider
-     * marks as visible, repeating events already expanded by the provider, ordered by their start.
+     * The occurrences touching the Julian days [firstDay]..[lastDay] in the calendars with the ids
+     * [calendars], repeating events already expanded by the provider, ordered by their start.
      */
-    suspend fun occurrences(firstDay: Int, lastDay: Int): List<Occurrence> = withContext(Dispatchers.IO) {
+    suspend fun occurrences(firstDay: Int, lastDay: Int, calendars: Set<Long>): List<Occurrence> = withContext(Dispatchers.IO) {
+        if (calendars.isEmpty()) return@withContext emptyList()
         val uri = Instances.CONTENT_BY_DAY_URI.buildUpon().also {
             ContentUris.appendId(it, firstDay.toLong())
             ContentUris.appendId(it, lastDay.toLong())
@@ -79,8 +108,9 @@ class CalendarSource(private val context: Context) {
             Instances.ALL_DAY, Instances.START_DAY, Instances.END_DAY, Instances.STATUS, Instances.SELF_ATTENDEE_STATUS,
         )
         val result = mutableListOf<Occurrence>()
-        resolver.query(uri, projection, "${Calendars.VISIBLE} = 1", null, "${Instances.BEGIN} ASC")?.use { cursor ->
+        resolver.query(uri, projection, null, null, "${Instances.BEGIN} ASC")?.use { cursor ->
             while (cursor.moveToNext()) {
+                if (cursor.getLong(1) !in calendars) continue
                 result += Occurrence(
                     eventId = cursor.getLong(0),
                     calendarId = cursor.getLong(1),

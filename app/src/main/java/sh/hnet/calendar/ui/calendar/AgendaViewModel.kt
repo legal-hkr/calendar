@@ -10,12 +10,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import sh.hnet.calendar.CalendarApplication
 import sh.hnet.calendar.model.Agenda
 import sh.hnet.calendar.model.AgendaDay
+import sh.hnet.calendar.model.CalendarChoices
 import sh.hnet.calendar.model.CalendarInfo
 import sh.hnet.calendar.model.JulianDay
 
@@ -41,7 +43,9 @@ sealed interface CalendarState {
  * list nears an end, and read again whenever the provider changes, the minute or the day turns.
  */
 class AgendaViewModel(application: Application) : AndroidViewModel(application) {
-    private val source = (application as CalendarApplication).calendars
+    private val app = application as CalendarApplication
+    private val source = app.calendars
+    private val choices = app.calendarChoices
     private val _state = MutableStateFlow<CalendarState>(CalendarState.Loading)
     val state: StateFlow<CalendarState> = _state
 
@@ -52,8 +56,20 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
     private var nothingEarlier = false
     private var nothingLater = false
     private var watching: Job? = null
+    /** Ids of the calendars shown, as of the last load. */
+    private var shown = emptySet<Long>()
 
     init {
+        // A calendar shown, hidden or recolored on the Calendars page: at once in the list
+        viewModelScope.launch {
+            choices.choices.collectLatest {
+                if (_state.value is CalendarState.Ready) {
+                    nothingEarlier = false
+                    nothingLater = false
+                    reload()
+                }
+            }
+        }
         // The minute turns: events end, and at midnight today moves on
         viewModelScope.launch {
             while (true) {
@@ -104,7 +120,7 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
                     val from = if (later) lastDay + 1 else firstDay - step
                     val to = if (later) lastDay + step else firstDay - 1
                     val found = try {
-                        source.occurrences(from, to)
+                        source.occurrences(from, to, shown)
                     } catch (_: SecurityException) {
                         return@withLock
                     }
@@ -139,12 +155,13 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
         firstDay = minOf(firstDay, today)
         lastDay = maxOf(lastDay, today)
         try {
-            val calendars = source.calendars()
+            val calendars = CalendarChoices.apply(source.calendars(), choices.choices.first())
             if (calendars.isEmpty()) {
                 _state.value = CalendarState.NoCalendars
                 return
             }
-            val days = Agenda.build(source.occurrences(firstDay, lastDay), firstDay, lastDay, today)
+            shown = calendars.filter { it.shown }.mapTo(HashSet()) { it.id }
+            val days = Agenda.build(source.occurrences(firstDay, lastDay, shown), firstDay, lastDay, today)
             _state.value = CalendarState.Ready(days, calendars.associateBy { it.id }, today, System.currentTimeMillis(), zone)
         } catch (_: SecurityException) {
             // Access was taken away between the check and the query

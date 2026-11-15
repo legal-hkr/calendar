@@ -6,6 +6,13 @@
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
+    <!-- To name the app an account belongs to on the Calendars page ("DAVx⁵"): the apps that provide accounts -->
+    <queries>
+        <intent>
+            <action android:name="android.accounts.AccountAuthenticator" />
+        </intent>
+    </queries>
+
     <application
         android:name=".CalendarApplication"
         android:allowBackup="false"

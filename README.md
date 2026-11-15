@@ -1,4 +1,4 @@
-# Calendar
+# <img src="metadata/en-US/icon.png" width="42"/> Calendar
 
 A private calendar for Android.
 

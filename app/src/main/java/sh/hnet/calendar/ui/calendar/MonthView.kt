@@ -18,8 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -108,7 +108,7 @@ private fun tilePalette(): Map<CalendarColor, TileColors> {
 }
 
 /**
- * Month (SPEC §6, boards 01 and 02): a page per month, swiped sideways. With [eventList] off the
+ * Month (SPEC §6, boards 01 and 02): a page per month, scrolled up and down (the owner's choice over the SPEC's sideways swipe). With [eventList] off the
  * full grid with tiles, where a tap on a day calls [onOpenDay]; with it on the compact grid with
  * marks, where a tap chooses the day ([onFocus]) whose events are listed below. [focus] is the day
  * the screen is at: the pager follows it, and a swipe moves it into the new month.
@@ -162,7 +162,7 @@ fun MonthView(
                 )
             }
         }
-        HorizontalPager(
+        VerticalPager(
             state = pager,
             key = { it },
             // The neighbors are ready before a swipe starts

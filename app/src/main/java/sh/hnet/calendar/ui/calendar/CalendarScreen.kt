@@ -64,6 +64,7 @@ import java.time.LocalDate
 import kotlinx.coroutines.launch
 import sh.hnet.calendar.CalendarApplication
 import sh.hnet.calendar.R
+import sh.hnet.calendar.ViewSettings
 import sh.hnet.calendar.model.CalendarView
 import sh.hnet.calendar.model.JulianDay
 import sh.hnet.calendar.model.Month
@@ -88,13 +89,11 @@ fun CalendarScreen(onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, view
     }
     val preferences = (LocalContext.current.applicationContext as CalendarApplication).preferences
     // Nothing is drawn before the saved view is known, so the app doesn't open on one view and change to another
-    val savedView by preferences.view.collectAsStateWithLifecycle(null)
-    val eventList by preferences.eventList.collectAsStateWithLifecycle(null)
+    val settings by preferences.viewSettings.collectAsStateWithLifecycle(null)
     val ready = state as? CalendarState.Ready
-    val startView = savedView
-    val list = eventList
-    if (ready != null && startView != null && list != null) {
-        CalendarViews(ready, startView, list, onOpenCalendars, onOpenSettings, viewModel)
+    val current = settings
+    if (ready != null && current != null) {
+        CalendarViews(ready, current, onOpenCalendars, onOpenSettings, viewModel)
         return
     }
     Column(Modifier.fillMaxSize()) {
@@ -120,29 +119,42 @@ private const val HISTORY_LIMIT = 10
 /**
  * The views (SPEC §3): the top bar with the period – a tap goes to a date –, Today and the view
  * menu, and under it the view chosen there. [focus] is the day the screen is at, which the views
- * share: Month shows its month, Agenda scrolls to it. Every change of view is a step that Back
- * retraces (SPEC §3.9).
+ * share: Month shows its month, Week its week, Day the day, Agenda scrolls to it. Every change of
+ * view, and a day opened from Month or Week, is a step that Back retraces (SPEC §3.9).
  */
 @Composable
-private fun CalendarViews(state: CalendarState.Ready, startView: CalendarView, eventList: Boolean, onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel) {
+private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel) {
+    val eventList = settings.eventList
     val preferences = (LocalContext.current.applicationContext as CalendarApplication).preferences
     val scope = rememberCoroutineScope()
     val formats = rememberCalendarFormats(state.zone)
     val weekStart = rememberWeekStart()
 
-    var view by rememberSaveable { mutableStateOf(startView) }
+    var view by rememberSaveable { mutableStateOf(settings.view) }
     var focus by rememberSaveable { mutableIntStateOf(state.today) }
     // Counts the moves made on purpose (Today, Go to date, another view), which Agenda answers by scrolling
     var jump by rememberSaveable { mutableIntStateOf(0) }
     val history: SnapshotStateList<Long> = rememberSaveable(saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) { mutableListOf<Long>().toMutableStateList() }
     val pager = rememberPagerState(initialPage = MonthPages.of(focus)) { MonthPages.COUNT }
+    val weeks = remember(weekStart) { WeekPages(weekStart) }
+    val weekPager = rememberPagerState(initialPage = weeks.of(focus)) { weeks.count }
+    val dayPager = rememberPagerState(initialPage = DayPages.of(focus)) { DayPages.COUNT }
+    // Week and Day share the hour's height and how far the hours are scrolled
+    val hours = remember { HoursState(settings.hourHeight) }
     var picking by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
-    fun show(next: CalendarView, day: Int) {
+    /** [place]: Week and Day choose where their hours open; without it they stay as they are when one changes into the other. */
+    fun show(next: CalendarView, day: Int, place: Boolean = true) {
+        if (next.hours && (place || !view.hours)) hours.scroll.intValue = -1
         if (next != view) {
-            // Month comes up already at its month, not a frame later
-            if (next == CalendarView.MONTH) pager.requestScrollToPage(MonthPages.of(day))
+            // The view comes up already at its page, not a frame later
+            when (next) {
+                CalendarView.MONTH -> pager.requestScrollToPage(MonthPages.of(day))
+                CalendarView.WEEK -> weekPager.requestScrollToPage(weeks.of(day))
+                CalendarView.DAY -> dayPager.requestScrollToPage(DayPages.of(day))
+                CalendarView.AGENDA -> Unit
+            }
             view = next
             scope.launch { preferences.setView(next) }
         }
@@ -151,21 +163,25 @@ private fun CalendarViews(state: CalendarState.Ready, startView: CalendarView, e
         if (next == CalendarView.AGENDA) viewModel.moveTo(day)
     }
 
-    fun open(next: CalendarView, day: Int = focus) {
+    fun open(next: CalendarView, day: Int = focus, place: Boolean = true) {
         history += step(view, focus)
         if (history.size > HISTORY_LIMIT) history.removeAt(0)
-        show(next, day)
+        show(next, day, place)
     }
 
     BackHandler(enabled = history.isNotEmpty()) {
         val last = history.removeAt(history.lastIndex)
-        show(CalendarView.entries[(last % STEP_VIEWS).toInt()], (last / STEP_VIEWS).toInt())
+        show(CalendarView.entries[(last % STEP_VIEWS).toInt()], (last / STEP_VIEWS).toInt(), place = false)
     }
 
     val period = when (view) {
         CalendarView.MONTH -> formats.month(Month.firstDate(MonthPages.month(pager.currentPage)))
+        // A week over two months is named by its first day's (SPEC §3.2)
+        CalendarView.WEEK -> formats.month(JulianDay.toDate(weeks.first(weekPager.currentPage)))
+        CalendarView.DAY -> formats.dayOfMonth(JulianDay.toDate(DayPages.day(dayPager.currentPage)))
         CalendarView.AGENDA -> formats.month(JulianDay.toDate(focus))
     }
+    val onZoomed: (Float) -> Unit = { scope.launch { preferences.setHourHeight(it) } }
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
             title = { PeriodTitle(period, onClick = { picking = true }) },
@@ -178,7 +194,7 @@ private fun CalendarViews(state: CalendarState.Ready, startView: CalendarView, e
                         view = view,
                         eventList = eventList,
                         onDismiss = { menu = false },
-                        onView = { if (it != view) open(it) },
+                        onView = { if (it != view) open(it, place = false) },
                         onEventList = { scope.launch { preferences.setEventList(it) } },
                         onOpenCalendars = onOpenCalendars,
                         onOpenSettings = onOpenSettings,
@@ -196,9 +212,21 @@ private fun CalendarViews(state: CalendarState.Ready, startView: CalendarView, e
                     eventList = eventList,
                     focus = focus,
                     onFocus = { focus = it },
-                    // Until Day comes with its stage, a day opens in Agenda
-                    onOpenDay = { open(CalendarView.AGENDA, it) },
+                    onOpenDay = { open(CalendarView.DAY, it) },
                 )
+                CalendarView.WEEK -> WeekView(
+                    state = state,
+                    formats = formats,
+                    weeks = weeks,
+                    pager = weekPager,
+                    hours = hours,
+                    focus = focus,
+                    onFocus = { focus = it },
+                    // The hours stay where they are
+                    onOpenDay = { open(CalendarView.DAY, it, place = false) },
+                    onZoomed = onZoomed,
+                )
+                CalendarView.DAY -> DayView(state, formats, weekStart, dayPager, hours, focus, onFocus = { focus = it }, onZoomed = onZoomed)
                 CalendarView.AGENDA -> AgendaList(state, formats, target = focus, jump = jump, onDay = { if (view == CalendarView.AGENDA) focus = it }, onNearEnd = viewModel::extend)
             }
         }
@@ -242,11 +270,15 @@ private fun PeriodTitle(text: String, onClick: () -> Unit) {
 
 private fun CalendarView.icon(filled: Boolean): Int = when (this) {
     CalendarView.MONTH -> if (filled) R.drawable.ic_calendar_view_month_filled else R.drawable.ic_calendar_view_month
+    CalendarView.WEEK -> if (filled) R.drawable.ic_calendar_view_week_filled else R.drawable.ic_calendar_view_week
+    CalendarView.DAY -> if (filled) R.drawable.ic_calendar_view_day_filled else R.drawable.ic_calendar_view_day
     CalendarView.AGENDA -> if (filled) R.drawable.ic_view_agenda_filled else R.drawable.ic_view_agenda
 }
 
 private fun CalendarView.label(): Int = when (this) {
     CalendarView.MONTH -> R.string.menu_view_month
+    CalendarView.WEEK -> R.string.menu_view_week
+    CalendarView.DAY -> R.string.menu_view_day
     CalendarView.AGENDA -> R.string.menu_view_agenda
 }
 

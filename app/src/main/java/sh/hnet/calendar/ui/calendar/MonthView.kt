@@ -30,7 +30,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,9 +72,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.DayOfWeek
-import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlinx.coroutines.flow.drop
 import sh.hnet.calendar.R
 import sh.hnet.calendar.model.Agenda
 import sh.hnet.calendar.model.CalendarColor
@@ -111,7 +108,7 @@ internal data class TileColors(val fill: Color, val on: Color, val text: Color, 
 
 /** The same map until a color changes (the theme, the wallpaper's colors), so the pages are not drawn anew for nothing. */
 @Composable
-private fun tilePalette(): Map<CalendarColor, TileColors> {
+internal fun tilePalette(): Map<CalendarColor, TileColors> {
     val colors = CalendarColor.entries.associateWith { TileColors(it.fill(), it.onFill(), it.text(), it.outline(), it.dimmedFill()) }
     return remember(colors) { colors }
 }
@@ -120,7 +117,7 @@ private fun tilePalette(): Map<CalendarColor, TileColors> {
  * Month (SPEC §6, boards 01 and 02): a page per month, scrolled up and down (the owner's choice over the SPEC's sideways swipe). With [eventList] off the
  * full grid with tiles, where a tap on a day calls [onOpenDay]; with it on the compact grid with
  * marks, where a tap chooses the day ([onFocus]) whose events are listed below. [focus] is the day
- * the screen is at: the pager follows it, and a swipe moves it into the new month.
+ * the screen is at: the pager follows it, and scrolling to another month moves it there.
  */
 @Composable
 fun MonthView(
@@ -132,28 +129,17 @@ fun MonthView(
     focus: Int,
     onFocus: (Int) -> Unit,
     onOpenDay: (Int) -> Unit,
-    viewModel: MonthViewModel = viewModel(),
+    viewModel: RangeViewModel = viewModel(key = "month"),
 ) {
     val events by viewModel.events.collectAsStateWithLifecycle()
-    val currentFocus by rememberUpdatedState(focus)
-    val currentToday by rememberUpdatedState(state.today)
-    val currentOnFocus by rememberUpdatedState(onFocus)
-
-    // Today, Go to date, a day chosen in another month: the pager goes there, with motion to a neighbor
-    LaunchedEffect(focus) {
-        val page = MonthPages.of(focus)
-        if (pager.targetPage != page) {
-            if (abs(page - pager.currentPage) == 1) pager.animateScrollToPage(page) else pager.scrollToPage(page)
-        }
-    }
-    // A swipe: the screen is at the new month. The first value is where the pager stood before the effect above moved it
+    // A swipe puts the screen on today in the current month, else on the month's first day
+    PagerFocus(pager, focus, MonthPages::of, { page, _ -> MonthPages.entryDay(page, state.today) }, onFocus)
     LaunchedEffect(pager) {
-        snapshotFlow { pager.settledPage }.drop(1).collect { page ->
-            if (MonthPages.of(currentFocus) != page) currentOnFocus(MonthPages.entryDay(page, currentToday))
+        snapshotFlow { pager.currentPage }.collect {
+            // The month and both its neighbors, whichever day their weeks start with
+            val month = MonthPages.month(it)
+            viewModel.show(JulianDay.of(Month.firstDate(month - 1)) - MONTH_LEAD, JulianDay.of(Month.firstDate(month + 1)) + MONTH_SPAN)
         }
-    }
-    LaunchedEffect(pager) {
-        snapshotFlow { pager.currentPage }.collect { viewModel.show(MonthPages.month(it)) }
     }
 
     val palette = tilePalette()
@@ -400,8 +386,8 @@ private fun CompactMonth(grid: MonthGrid, number: Int, focus: Int, state: Calend
 
 /** The chosen day under the compact grid (SPEC §6.3): its header and rows as in Agenda. The list scrolls, the grid stays. */
 @Composable
-private fun DayList(day: Int, events: MonthEvents, state: CalendarState.Ready, formats: CalendarFormats) {
-    val loaded = events.covers(Month.number(JulianDay.toDate(day)))
+private fun DayList(day: Int, events: LoadedEvents, state: CalendarState.Ready, formats: CalendarFormats) {
+    val loaded = events.covers(day, day)
     val rows = remember(events, day, state.today) {
         if (loaded) Agenda.build(events.occurrences, day, day, state.today).firstOrNull()?.rows.orEmpty() else emptyList()
     }
@@ -434,7 +420,7 @@ private fun DayList(day: Int, events: MonthEvents, state: CalendarState.Ready, f
 
 /** The tile's text (SPEC §5.1): 11 sp on lines of 13 sp, the title in medium weight, wrapped with the language's hyphenation. */
 @Composable
-private fun tileTitleStyle(): TextStyle = MaterialTheme.typography.labelSmall.copy(
+internal fun tileTitleStyle(): TextStyle = MaterialTheme.typography.labelSmall.copy(
     fontSize = 11.sp,
     lineHeight = 13.sp,
     letterSpacing = 0.sp,
@@ -442,6 +428,13 @@ private fun tileTitleStyle(): TextStyle = MaterialTheme.typography.labelSmall.co
     hyphens = Hyphens.Auto,
     lineBreak = LineBreak.Paragraph,
 )
+
+/** A page starts up to six days before the month's first day and shows six weeks. */
+private const val MONTH_LEAD = 6
+private const val MONTH_SPAN = Month.WEEKS * 7 - 1
+
+/** Whether the page of the month [number] can be drawn from this, whichever day its weeks start with. */
+private fun LoadedEvents.covers(number: Int): Boolean = JulianDay.of(Month.firstDate(number)).let { covers(it - MONTH_LEAD, it + MONTH_SPAN) }
 
 private val TILE_PADDING_VERTICAL = 1.dp
 private val TILE_PADDING_HORIZONTAL = 3.dp

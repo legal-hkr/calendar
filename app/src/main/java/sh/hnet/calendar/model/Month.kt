@@ -67,22 +67,30 @@ object Month {
         val (long, single) = shown.partition { it.endDay > it.startDay }
         val weeks = (0 until WEEKS).map { index ->
             val weekFirst = firstDay + index * 7
-            val weekLast = weekFirst + 6
-            val taken = mutableListOf<BooleanArray>()
-            val bars = long.filter { it.startDay <= weekLast && it.endDay >= weekFirst }.sortedWith(BAR_ORDER).map { occurrence ->
-                val first = maxOf(occurrence.startDay, weekFirst) - weekFirst
-                val last = minOf(occurrence.endDay, weekLast) - weekFirst
-                var lane = taken.indexOfFirst { line -> (first..last).none { line[it] } }
-                if (lane < 0) {
-                    taken += BooleanArray(7)
-                    lane = taken.lastIndex
-                }
-                for (column in first..last) taken[lane][column] = true
-                MonthBar(occurrence, first, last, lane, startsBefore = occurrence.startDay < weekFirst, endsAfter = occurrence.endDay > weekLast)
-            }
+            val bars = bars(long, weekFirst)
             MonthWeek(weekFirst, bars, (0 until 7).map { column -> single.filter { it.startDay == weekFirst + column }.sortedWith(DAY_ORDER) })
         }
         return MonthGrid(firstDay, weeks)
+    }
+
+    /**
+     * The bars of the events among [occurrences] that touch the week from [weekFirst]: each on the first
+     * line free over its days, earlier and longer events first.
+     */
+    fun bars(occurrences: List<Occurrence>, weekFirst: Int): List<MonthBar> {
+        val weekLast = weekFirst + 6
+        val taken = mutableListOf<BooleanArray>()
+        return occurrences.filter { it.startDay <= weekLast && maxOf(it.endDay, it.startDay) >= weekFirst }.sortedWith(BAR_ORDER).map { occurrence ->
+            val first = maxOf(occurrence.startDay, weekFirst) - weekFirst
+            val last = minOf(maxOf(occurrence.endDay, occurrence.startDay), weekLast) - weekFirst
+            var lane = taken.indexOfFirst { line -> (first..last).none { line[it] } }
+            if (lane < 0) {
+                taken += BooleanArray(7)
+                lane = taken.lastIndex
+            }
+            for (column in first..last) taken[lane][column] = true
+            MonthBar(occurrence, first, last, lane, startsBefore = occurrence.startDay < weekFirst, endsAfter = occurrence.endDay > weekLast)
+        }
     }
 
     /**
@@ -154,6 +162,6 @@ object Month {
     const val MAX_TITLE_LINES = 3
     private const val MAX_DOTS = 4
 
-    private val BAR_ORDER = compareBy<Occurrence>({ it.startDay }, { it.startDay - it.endDay }, { !it.allDay }, { it.begin }, { it.title.lowercase() }, { it.eventId })
+    internal val BAR_ORDER = compareBy<Occurrence>({ it.startDay }, { it.startDay - it.endDay }, { !it.allDay }, { it.begin }, { it.title.lowercase() }, { it.eventId })
     private val DAY_ORDER = compareBy<Occurrence>({ !it.allDay }, { if (it.allDay) 0L else it.begin }, { it.end }, { it.title.lowercase() }, { it.eventId })
 }

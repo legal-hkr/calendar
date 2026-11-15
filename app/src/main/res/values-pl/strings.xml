@@ -29,6 +29,8 @@
     <string name="content_description_today">Dzisiaj</string>
     <string name="content_description_view_menu">Widok i menu</string>
     <string name="menu_view_month">Miesiąc</string>
+    <string name="menu_view_week">Tydzień</string>
+    <string name="menu_view_day">Dzień</string>
     <string name="menu_view_agenda">Harmonogram</string>
     <string name="menu_event_list">Lista wydarzeń</string>
 

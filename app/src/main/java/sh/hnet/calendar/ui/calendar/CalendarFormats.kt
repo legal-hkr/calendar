@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -21,6 +22,7 @@ class CalendarFormats(val locale: Locale, val hours24: Boolean, val zone: ZoneId
     private val hour: DateTimeFormatter = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "h"), locale)
     private val day: DateTimeFormatter = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "EEEEMMMMd"), locale)
     private val dayWithYear: DateTimeFormatter = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "EEEEMMMMdy"), locale)
+    private val dayOfMonth: DateTimeFormatter = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "MMMMd"), locale)
     private val month: DateTimeFormatter = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "LLLLy"), locale)
 
     fun time(millis: Long): String = time.format(Instant.ofEpochMilli(millis).atZone(zone))
@@ -36,6 +38,12 @@ class CalendarFormats(val locale: Locale, val hours24: Boolean, val zone: ZoneId
 
     /** The top bar's period: "November 2026". */
     fun month(date: LocalDate): String = capitalize(month.format(date))
+
+    /** The top bar's period in Day: "November 18". */
+    fun dayOfMonth(date: LocalDate): String = capitalize(dayOfMonth.format(date))
+
+    /** An hour's label beside the time grid: "08:00", or "8 AM". */
+    fun hour(hour: Int): String = (if (hours24) time else this.hour).format(LocalTime.of(hour, 0))
 
     fun weekday(day: DayOfWeek): String = day.getDisplayName(TextStyle.SHORT_STANDALONE, locale)
 

@@ -29,9 +29,12 @@
     <string name="content_description_today">Today</string>
     <string name="content_description_view_menu">View and menu</string>
     <string name="menu_view_month">Month</string>
+    <string name="menu_view_week">Week</string>
+    <string name="menu_view_day">Day</string>
     <string name="menu_view_agenda">Agenda</string>
     <string name="menu_event_list">Event list</string>
     <string name="label_more_events" translatable="false">+%d</string>
+    <string name="label_title_and_time" translatable="false">%1$s, %2$s</string>
 
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>

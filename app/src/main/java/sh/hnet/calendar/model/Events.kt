@@ -73,10 +73,15 @@ object JulianDay {
     fun toDate(day: Int): LocalDate = LocalDate.ofEpochDay(day - EPOCH)
 }
 
-/** The views of the main screen (SPEC §3.1). Week and Day come with their stage. */
+/** The views of the main screen (SPEC §3.1), in the order of the view menu. */
 enum class CalendarView(val key: String) {
     MONTH("month"),
+    WEEK("week"),
+    DAY("day"),
     AGENDA("agenda");
+
+    /** Week and Day: a day's hours from top to bottom. */
+    val hours: Boolean get() = this == WEEK || this == DAY
 
     companion object {
         /** The view saved under [key]; Month for a first start. */

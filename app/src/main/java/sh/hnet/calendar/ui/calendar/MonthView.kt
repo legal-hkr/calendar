@@ -1,7 +1,9 @@
 package sh.hnet.calendar.ui.calendar
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -32,6 +34,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -43,6 +46,10 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -61,11 +68,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.DayOfWeek
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.drop
 import sh.hnet.calendar.R
 import sh.hnet.calendar.model.Agenda
@@ -162,31 +171,47 @@ fun MonthView(
                 )
             }
         }
-        VerticalPager(
-            state = pager,
-            key = { it },
-            // The neighbors are ready before a swipe starts
-            beyondViewportPageCount = 1,
-            // The full grid shares all the height left; the compact one has rows of 48 dp
-            modifier = if (eventList) Modifier.fillMaxWidth().height(COMPACT_ROW * Month.WEEKS) else Modifier.fillMaxWidth().weight(1f).navigationBarsPadding(),
-        ) { page ->
-            val number = MonthPages.month(page)
-            val grid = remember(events, number, weekStart) {
-                Month.build(if (events.covers(number)) events.occurrences else emptyList(), Month.gridStart(number, weekStart))
-            }
-            Box(Modifier.fillMaxSize()) {
-                if (eventList) {
-                    CompactMonth(grid, number, focus, state, palette)
-                    DayTargets(grid.firstDay, formats, onFocus)
-                } else {
-                    FullMonth(grid, number, state, palette, formats)
-                    DayTargets(grid.firstDay, formats, onOpenDay)
+        // 0 is the full grid, 1 the compact one with the list; turning "Event list" on or off is one motion between them:
+        // the rows change their height, tiles fade into marks and the list comes up from under the grid
+        val list = animateFloatAsState(if (eventList) 1f else 0f, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "eventList")
+        val showFull by remember { derivedStateOf { list.value < 1f } }
+        val showList by remember { derivedStateOf { list.value > 0f } }
+        val navigationBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val compactHeight = COMPACT_ROW * Month.WEEKS
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+            // The full grid shares all the height above the system's navigation area; the compact one has rows of 48 dp
+            val fullHeight = (maxHeight - navigationBar).coerceAtLeast(compactHeight)
+            val fullSize = with(LocalDensity.current) { Size(maxWidth.toPx(), fullHeight.toPx()) }
+            Column(Modifier.fillMaxSize()) {
+                VerticalPager(
+                    state = pager,
+                    key = { it },
+                    // The neighbors are ready before a swipe starts
+                    beyondViewportPageCount = 1,
+                    // The height is read while laying out, so the motion composes nothing anew
+                    modifier = Modifier.fillMaxWidth().layout { measurable, constraints ->
+                        val height = lerp(fullHeight.toPx(), compactHeight.toPx(), list.value.coerceIn(0f, 1f)).roundToInt().coerceAtMost(constraints.maxHeight)
+                        val placeable = measurable.measure(constraints.copy(minHeight = height, maxHeight = height))
+                        layout(placeable.width, height) { placeable.place(0, 0) }
+                    },
+                ) { page ->
+                    val number = MonthPages.month(page)
+                    val grid = remember(events, number, weekStart) {
+                        Month.build(if (events.covers(number)) events.occurrences else emptyList(), Month.gridStart(number, weekStart))
+                    }
+                    Box(Modifier.fillMaxSize()) {
+                        if (showFull) FullMonth(grid, number, state, palette, formats, fullSize, Modifier.graphicsLayer { alpha = 1f - list.value.coerceIn(0f, 1f) })
+                        if (showList) CompactMonth(grid, number, focus, state, palette, Modifier.graphicsLayer { alpha = list.value.coerceIn(0f, 1f) })
+                        DayTargets(grid.firstDay, formats, if (eventList) onFocus else onOpenDay)
+                    }
+                }
+                if (showList) {
+                    Column(Modifier.fillMaxWidth().weight(1f).graphicsLayer { alpha = list.value.coerceIn(0f, 1f) }) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        DayList(focus, events, state, formats)
+                    }
                 }
             }
-        }
-        if (eventList) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            DayList(focus, events, state, formats)
         }
     }
 }
@@ -211,10 +236,13 @@ private fun DayTargets(firstDay: Int, formats: CalendarFormats, onDay: (Int) -> 
 
 /**
  * The full grid (SPEC §6.1) with the tiles of §5, drawn in one pass: the lines a tile gets depend
- * on how its title wraps, so the text is measured here anyway.
+ * on how its title wraps, so the text is measured here anyway. The rows are laid out for [fullSize],
+ * the grid's size at rest, and drawn at a sixth of the height there is – so while the grid changes
+ * into the compact one its rows only move closer and are cut short, and nothing is laid out anew.
  */
 @Composable
-private fun FullMonth(grid: MonthGrid, number: Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats) {
+private fun FullMonth(grid: MonthGrid, number: Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats, fullSize: Size, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
     val measurer = rememberTextMeasurer(cacheSize = 128)
     val scheme = MaterialTheme.colorScheme
     val noTitle = stringResource(R.string.label_no_title)
@@ -222,12 +250,12 @@ private fun FullMonth(grid: MonthGrid, number: Int, state: CalendarState.Ready, 
     val numberStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
     val titleStyle = tileTitleStyle()
     val timeStyle = titleStyle.copy(fontWeight = FontWeight.Normal, hyphens = Hyphens.None)
-    Spacer(
-        Modifier.fillMaxSize().drawWithCache {
+    val rows = remember(grid, number, state, palette, formats, fullSize, density, scheme, numberStyle, titleStyle, noTitle, moreText) {
+        with(density) {
             val painter = TilePainter(measurer, palette, state.calendars, state.now, state.today, formats, noTitle, titleStyle, timeStyle, this)
-            val ops = ArrayList<DrawScope.() -> Unit>()
-            val rowHeight = size.height / Month.WEEKS
-            val columnWidth = size.width / 7
+            val rows = ArrayList<List<DrawScope.() -> Unit>>()
+            val rowHeight = fullSize.height / Month.WEEKS
+            val columnWidth = fullSize.width / 7
             val line = painter.line
             val gap = 2.dp.toPx()
             val oneLine = TILE_PADDING_VERTICAL.toPx() * 2 + line
@@ -241,8 +269,10 @@ private fun FullMonth(grid: MonthGrid, number: Int, state: CalendarState.Ready, 
             val circle = 12.dp.toPx()
             val stroke = 1.dp.toPx()
 
-            grid.weeks.forEachIndexed { index, week ->
-                val rowTop = index * rowHeight
+            for (week in grid.weeks) {
+                // Each row in its own coordinates
+                val ops = ArrayList<DrawScope.() -> Unit>()
+                val rowTop = 0f
                 ops += { drawLine(scheme.outlineVariant, Offset(0f, rowTop + stroke / 2), Offset(size.width, rowTop + stroke / 2), stroke) }
                 for (column in 0 until 7) {
                     val day = week.firstDay + column
@@ -285,8 +315,19 @@ private fun FullMonth(grid: MonthGrid, number: Int, state: CalendarState.Ready, 
                         ops += { drawText(more, scheme.onSurfaceVariant, Offset(left + TILE_PADDING_HORIZONTAL.toPx(), moreTop)) }
                     }
                 }
+                rows += ops
             }
-            onDrawBehind { for (op in ops) op() }
+            rows
+        }
+    }
+    Spacer(
+        modifier.fillMaxSize().drawBehind {
+            val rowHeight = size.height / Month.WEEKS
+            rows.forEachIndexed { index, ops ->
+                translate(top = index * rowHeight) {
+                    clipRect(0f, 0f, size.width, rowHeight) { for (op in ops) op() }
+                }
+            }
         },
     )
 }
@@ -296,13 +337,13 @@ private fun FullMonth(grid: MonthGrid, number: Int, state: CalendarState.Ready, 
  * per calendar under it, and a thin bar for an event of several days.
  */
 @Composable
-private fun CompactMonth(grid: MonthGrid, number: Int, focus: Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>) {
+private fun CompactMonth(grid: MonthGrid, number: Int, focus: Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer(cacheSize = 64)
     val scheme = MaterialTheme.colorScheme
     val numberStyle = MaterialTheme.typography.bodyMedium
     val plusStyle = tileTitleStyle()
     Spacer(
-        Modifier.fillMaxSize().drawWithCache {
+        modifier.fillMaxSize().drawWithCache {
             val ops = ArrayList<DrawScope.() -> Unit>()
             val rowHeight = size.height / Month.WEEKS
             val columnWidth = size.width / 7

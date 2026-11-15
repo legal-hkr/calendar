@@ -12,7 +12,26 @@
     <string name="msg_no_browser">Brak aplikacji, która otworzy ten link</string>
 
     <!-- Calendar -->
-    <string name="msg_in_development">W przygotowaniu.</string>
+
+    <string name="label_day_header_today">Dzisiaj – %s</string>
+    <string name="label_day_header_tomorrow">Jutro – %s</string>
+    <string name="label_all_day">Cały dzień</string>
+    <string name="label_until_time">do %s</string>
+    <string name="label_day_of_days">Dzień %1$d z %2$d</string>
+    <string name="label_nothing_planned">Nic nie zaplanowano</string>
+    <string name="label_state_tentative">Wstępnie przyjęte</string>
+    <string name="label_state_canceled">Odwołane</string>
+    <string name="label_no_title">(Bez tytułu)</string>
+    <string name="msg_no_calendars">W telefonie nie ma jeszcze żadnego kalendarza</string>
+
+    <!-- First run and calendar access -->
+    <string name="title_wizard_access">Dostęp do kalendarzy</string>
+    <string name="msg_wizard_access_1">Aplikacja pokazuje i zmienia wydarzenia zapisane w telefonie. Bez dostępu nie może wyświetlić żadnego z nich.</string>
+    <string name="msg_wizard_access_2">Aplikacja nigdy nie łączy się z Internetem. Wydarzenia przechowuje system, a synchronizują je aplikacje obsługujące konta, na przykład DAVx⁵.</string>
+    <string name="button_allow_access">Zezwól na dostęp</string>
+    <string name="msg_no_access">Aplikacja nie ma dostępu do kalendarzy w telefonie</string>
+    <string name="button_open_app_settings">Otwórz ustawienia aplikacji</string>
+    <string name="msg_no_access_note">Dostęp można włączyć w ustawieniach systemu: Uprawnienia › Kalendarz.</string>
 
     <!-- Settings -->
     <string name="title_settings">Ustawienia</string>
@@ -50,5 +69,5 @@
     <string name="label_licenses">Licencje open source</string>
     <string name="desc_licenses">Składniki open source użyte w aplikacji</string>
     <string name="title_about_source">Kod źródłowy</string>
-    <string name="msg_about_privacy">Kalendarz nie ma dostępu do Internetu. Wydarzenia zostają w telefonie. Bez konta, bez analityki, bez żadnych usług.</string>
+    <string name="msg_about_privacy">Aplikacja nie ma dostępu do Internetu. Wydarzenia przechowuje system, a synchronizują je aplikacje obsługujące konta.</string>
 </resources>

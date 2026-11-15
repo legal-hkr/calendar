@@ -22,7 +22,11 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,9 +38,11 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import sh.hnet.calendar.CalendarApplication
 import sh.hnet.calendar.R
 import sh.hnet.calendar.about.WhatsNew
 import sh.hnet.calendar.ui.calendar.CalendarScreen
+import sh.hnet.calendar.ui.components.CalendarAccess
 import sh.hnet.calendar.ui.settings.AboutScreen
 import sh.hnet.calendar.ui.settings.AppLicenseScreen
 import sh.hnet.calendar.ui.settings.LanguageScreen
@@ -44,10 +50,11 @@ import sh.hnet.calendar.ui.settings.LicensesScreen
 import sh.hnet.calendar.ui.settings.ResetScreen
 import sh.hnet.calendar.ui.settings.SettingsRootScreen
 import sh.hnet.calendar.ui.settings.WhatsNewScreen
+import sh.hnet.calendar.ui.welcome.AccessScreen
 
 /**
  * The app's shell: one back stack with the calendar at its root; Settings and everything else
- * open over it as pages, with Back. The structure of the modes comes with the UI handoff.
+ * open over it as pages, with Back. On the first start the page asking for calendar access lies over it all.
  */
 @Composable
 fun CalendarApp() {
@@ -68,6 +75,9 @@ fun CalendarApp() {
             stack.add(Screen.SettingsWhatsNew)
         }
     }
+
+    val app = appContext as CalendarApplication
+    var welcome by rememberSaveable { mutableStateOf(!CalendarAccess.welcomeSeen(appContext) && !app.calendars.hasAccess()) }
 
     val motion = MaterialTheme.motionScheme
     val spatial: FiniteAnimationSpec<IntOffset> = motion.defaultSpatialSpec()
@@ -121,6 +131,13 @@ fun CalendarApp() {
                     entry<Screen.SettingsLicenses> { LicensesScreen(onBack = back) }
                 },
             )
+            // The first start (SPEC §15.1): the page asking for access lies over the calendar until it is answered
+            if (welcome) {
+                AccessScreen(onAnswer = {
+                    CalendarAccess.markWelcomeSeen(appContext)
+                    welcome = false
+                })
+            }
             // One host for every page, above the system's navigation area
             SnackbarHost(snackbars, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) { data ->
                 Snackbar(data, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.padding(horizontal = 12.dp))

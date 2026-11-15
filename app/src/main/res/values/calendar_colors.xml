@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Calendar colors (SPEC §4.1), the one exception to theme roles: fill of tiles, bars and dots; "on" = text on a fill;
+     "text" = text on a dimmed or outlined tile; "outline" = the dashed outline of a tentative event. Light theme: the fills darkened by 15 % toward their on color. -->
+<resources>
+    <color name="calendar_red_fill">#E79C92</color>
+    <color name="calendar_red_on">#5F1410</color>
+    <color name="calendar_red_text">#73150F</color>
+    <color name="calendar_red_outline">#73150F</color>
+    <color name="calendar_orange_fill">#E5A173</color>
+    <color name="calendar_orange_on">#522300</color>
+    <color name="calendar_orange_text">#6A2E00</color>
+    <color name="calendar_orange_outline">#6A2E00</color>
+    <color name="calendar_amber_fill">#DAA93D</color>
+    <color name="calendar_amber_on">#412D00</color>
+    <color name="calendar_amber_text">#5A3F00</color>
+    <color name="calendar_amber_outline">#5A3F00</color>
+    <color name="calendar_olive_fill">#B1B55A</color>
+    <color name="calendar_olive_on">#2F3200</color>
+    <color name="calendar_olive_text">#3F4300</color>
+    <color name="calendar_olive_outline">#3F4300</color>
+    <color name="calendar_green_fill">#80BF7B</color>
+    <color name="calendar_green_on">#003A0A</color>
+    <color name="calendar_green_text">#12501A</color>
+    <color name="calendar_green_outline">#12501A</color>
+    <color name="calendar_teal_fill">#5EBEC0</color>
+    <color name="calendar_teal_on">#003738</color>
+    <color name="calendar_teal_text">#004F51</color>
+    <color name="calendar_teal_outline">#004F51</color>
+    <color name="calendar_sky_fill">#72B7E4</color>
+    <color name="calendar_sky_on">#00344C</color>
+    <color name="calendar_sky_text">#004C6C</color>
+    <color name="calendar_sky_outline">#004C6C</color>
+    <color name="calendar_blue_fill">#96AFE9</color>
+    <color name="calendar_blue_on">#002D6E</color>
+    <color name="calendar_blue_text">#1F4190</color>
+    <color name="calendar_blue_outline">#1F4190</color>
+    <color name="calendar_violet_fill">#BCA2EC</color>
+    <color name="calendar_violet_on">#3B1680</color>
+    <color name="calendar_violet_text">#572E96</color>
+    <color name="calendar_violet_outline">#572E96</color>
+    <color name="calendar_magenta_fill">#E793CE</color>
+    <color name="calendar_magenta_on">#5C0050</color>
+    <color name="calendar_magenta_text">#792066</color>
+    <color name="calendar_magenta_outline">#792066</color>
+    <color name="calendar_raspberry_fill">#E896AB</color>
+    <color name="calendar_raspberry_on">#65002A</color>
+    <color name="calendar_raspberry_text">#8A1F43</color>
+    <color name="calendar_raspberry_outline">#8A1F43</color>
+    <color name="calendar_graphite_fill">#AEB0B8</color>
+    <color name="calendar_graphite_on">#2E3036</color>
+    <color name="calendar_graphite_text">#44474E</color>
+    <color name="calendar_graphite_outline">#44474E</color>
+</resources>

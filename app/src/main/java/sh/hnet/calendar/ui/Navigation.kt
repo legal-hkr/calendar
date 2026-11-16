@@ -16,6 +16,7 @@ sealed interface Screen : NavKey {
      * the next, so each starts with a draft of its own.
      */
     @Serializable data class Editor(val eventId: Long = 0, val begin: Long = 0, val end: Long = 0, val day: Int = 0, val minute: Int = -1, val copy: Boolean = false, val session: Long = 0) : Screen
+    @Serializable data object Search : Screen
     @Serializable data object Settings : Screen
     @Serializable data object Calendars : Screen
     @Serializable data object SettingsView : Screen

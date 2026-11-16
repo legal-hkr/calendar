@@ -28,6 +28,7 @@ import sh.hnet.calendar.model.EventStatus
 import sh.hnet.calendar.model.Guest
 import sh.hnet.calendar.model.Occurrence
 import sh.hnet.calendar.model.Reminder
+import sh.hnet.calendar.model.Search
 
 /**
  * The system's calendar provider, where the events live (SPEC §1.3). The app reads and writes it
@@ -140,6 +141,22 @@ class CalendarSource(private val context: Context) {
                     },
                     originalId = if (cursor.isNull(11)) 0 else cursor.getLong(11),
                 )
+            }
+        }
+        result
+    }
+
+    /**
+     * The ids of the events in the calendars with the ids [calendars] whose title, place or
+     * description has every one of [words] (SPEC §11.2), as [Search] compares them. An occurrence
+     * changed on its own is an event of its own here, with its own texts.
+     */
+    suspend fun matching(words: List<String>, calendars: Set<Long>): Set<Long> = withContext(Dispatchers.IO) {
+        if (words.isEmpty() || calendars.isEmpty()) return@withContext emptySet()
+        val result = HashSet<Long>()
+        resolver.query(Events.CONTENT_URI, arrayOf(Events._ID, Events.CALENDAR_ID, Events.TITLE, Events.EVENT_LOCATION, Events.DESCRIPTION), "${Events.DELETED} = 0", null, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                if (cursor.getLong(1) in calendars && Search.matches(words, cursor.getString(2), cursor.getString(3), cursor.getString(4))) result += cursor.getLong(0)
             }
         }
         result

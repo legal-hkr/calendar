@@ -84,7 +84,7 @@ import sh.hnet.calendar.ui.components.rememberCalendarAccessAsk
  * Search and the new-event button come with their stages.
  */
 @Composable
-fun CalendarScreen(onOpenEvent: (Occurrence) -> Unit, onNewEvent: (day: Int, minute: Int) -> Unit, onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel = viewModel()) {
+fun CalendarScreen(onOpenEvent: (Occurrence) -> Unit, onNewEvent: (day: Int, minute: Int) -> Unit, onOpenSearch: () -> Unit, onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Back from the system's settings or its permission dialog: the answer may have changed
     LifecycleResumeEffect(viewModel) {
@@ -97,7 +97,7 @@ fun CalendarScreen(onOpenEvent: (Occurrence) -> Unit, onNewEvent: (day: Int, min
     val ready = state as? CalendarState.Ready
     val current = settings
     if (ready != null && current != null) {
-        CalendarViews(ready, current, onOpenEvent, onNewEvent, onOpenCalendars, onOpenSettings, viewModel)
+        CalendarViews(ready, current, onOpenEvent, onNewEvent, onOpenSearch, onOpenCalendars, onOpenSettings, viewModel)
         return
     }
     Column(Modifier.fillMaxSize()) {
@@ -127,7 +127,7 @@ private const val HISTORY_LIMIT = 10
  * view, and a day opened from Month or Week, is a step that Back retraces (SPEC §3.9).
  */
 @Composable
-private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, onOpenEvent: (Occurrence) -> Unit, onNewEvent: (day: Int, minute: Int) -> Unit, onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel) {
+private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, onOpenEvent: (Occurrence) -> Unit, onNewEvent: (day: Int, minute: Int) -> Unit, onOpenSearch: () -> Unit, onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel) {
     val eventList = settings.eventList
     val preferences = (LocalContext.current.applicationContext as CalendarApplication).preferences
     val scope = rememberCoroutineScope()
@@ -190,6 +190,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
         TopAppBar(
             title = { PeriodTitle(period, onClick = { picking = true }) },
             actions = {
+                TooltipIconButton(R.drawable.ic_search, stringResource(R.string.content_description_search), onOpenSearch)
                 TooltipIconButton(R.drawable.ic_today, stringResource(R.string.content_description_today), { show(view, state.today) })
                 Box {
                     TooltipIconButton(view.icon(filled = false), stringResource(R.string.content_description_view_menu), { menu = true })

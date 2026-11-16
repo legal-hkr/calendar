@@ -343,6 +343,14 @@
     <string name="label_reminders_timed">Przypomnienia dla wydarzeń z godziną</string>
     <string name="label_reminders_all_day">Przypomnienia dla wydarzeń całodniowych</string>
 
+    <!-- Search -->
+    <string name="content_description_search">Szukaj</string>
+    <string name="hint_search">Szukaj wydarzeń</string>
+    <string name="content_description_clear">Wyczyść</string>
+    <string name="label_upcoming">Nadchodzące</string>
+    <string name="label_past">Minione</string>
+    <string name="msg_no_events_found">Nie znaleziono wydarzeń</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Dostęp do kalendarzy</string>
     <string name="msg_wizard_access_1">Aplikacja pokazuje i zmienia wydarzenia zapisane w telefonie. Bez dostępu nie może wyświetlić żadnego z nich.</string>

@@ -45,6 +45,7 @@ import sh.hnet.calendar.CalendarApplication
 import sh.hnet.calendar.R
 import sh.hnet.calendar.about.WhatsNew
 import sh.hnet.calendar.ui.calendar.CalendarScreen
+import sh.hnet.calendar.ui.calendar.SearchScreen
 import sh.hnet.calendar.ui.calendars.CalendarsScreen
 import sh.hnet.calendar.ui.components.CalendarAccess
 import sh.hnet.calendar.ui.components.ErrorDetails
@@ -140,10 +141,12 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
                         CalendarScreen(
                             onOpenEvent = { open(Screen.Event(it.eventId, it.begin, it.end)) },
                             onNewEvent = { day, minute -> open(Screen.Editor(day = day, minute = minute, session = System.nanoTime())) },
+                            onOpenSearch = { open(Screen.Search) },
                             onOpenCalendars = { open(Screen.Calendars) },
                             onOpenSettings = { open(Screen.Settings) },
                         )
                     }
+                    entry<Screen.Search> { SearchScreen(onBack = back, onOpenEvent = { open(Screen.Event(it.eventId, it.begin, it.end)) }) }
                     entry<Screen.Event> { event ->
                         EventScreen(
                             event.eventId, event.begin, event.end, snackbars,

@@ -310,6 +310,14 @@
     <string name="label_reminders_timed">Reminders for timed events</string>
     <string name="label_reminders_all_day">Reminders for all-day events</string>
 
+    <!-- Search -->
+    <string name="content_description_search">Search</string>
+    <string name="hint_search">Search events</string>
+    <string name="content_description_clear">Clear</string>
+    <string name="label_upcoming">Upcoming</string>
+    <string name="label_past">Past</string>
+    <string name="msg_no_events_found">No events found</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>
     <string name="msg_wizard_access_1">Calendar shows and changes the events saved on this phone. Without access it can’t show any of them.</string>

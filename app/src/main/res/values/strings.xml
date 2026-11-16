@@ -503,6 +503,10 @@
     <string name="widget_month_description">The month with marks on days that have events.</string>
     <string name="widget_upcoming_name">Upcoming events</string>
     <string name="widget_upcoming_description">The next event and the one after it.</string>
+    <string name="widget_upcoming_bare_name">Upcoming events, no background</string>
+    <string name="widget_upcoming_bare_description">The next two events on your wallpaper.</string>
+    <string name="widget_agenda_bare_name">Agenda, no background</string>
+    <string name="widget_agenda_bare_description">Today’s events on your wallpaper.</string>
     <string name="widget_all_day_short">all day</string>
     <string name="widget_day_and_time">%1$s %2$s</string>
     <string name="widget_tomorrow_lowercase">tomorrow</string>

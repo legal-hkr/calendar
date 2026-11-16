@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The calendars' dots on widgets without a background (SPEC §17.7, §17.8): the dark theme's fills in both themes, as the dots stand straight on the wallpaper next to white text. A copy of values-night/calendar_colors.xml's fills, kept only here so that the night qualifier doesn't change them. -->
+<resources>
+    <color name="calendar_red_bare">#FFB4A9</color>
+    <color name="calendar_orange_bare">#FFB787</color>
+    <color name="calendar_amber_bare">#F5BF48</color>
+    <color name="calendar_olive_bare">#C8CC6A</color>
+    <color name="calendar_green_bare">#96D68F</color>
+    <color name="calendar_teal_bare">#6FD6D8</color>
+    <color name="calendar_sky_bare">#86CEFF</color>
+    <color name="calendar_blue_bare">#B0C6FF</color>
+    <color name="calendar_violet_bare">#D3BBFF</color>
+    <color name="calendar_magenta_bare">#FFADE4</color>
+    <color name="calendar_raspberry_bare">#FFB1C2</color>
+    <color name="calendar_graphite_bare">#C5C7CF</color>
+</resources>

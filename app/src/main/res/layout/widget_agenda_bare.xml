@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Agenda without a background (SPEC §17.8): today's date (16 dp, 500; widget_agenda_bare_date), then one line per event of today, 6 dp apart – as many as the height holds (widget_agenda_bare_line); both added in code, or "Nothing planned". White with the soft shadow, straight on the wallpaper. The date's line is 22 dp high and an event's 18, so the code can count what fits. Sizes are in dp, text too. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="SpUsage,ContentDescription"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_floating_frame"
+    android:clipChildren="false"
+    android:clipToOutline="true">
+
+    <LinearLayout
+        android:id="@+id/list"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:orientation="vertical"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp" />
+</FrameLayout>

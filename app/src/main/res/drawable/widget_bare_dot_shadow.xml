@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The shadow under a calendar's dot on the widgets without a background, as the text there has one (black, soft, about 4 dp, 1 dp down) – at half the text's strength: a solid dot gathers far more of it than a letter's thin strokes (the owner, 16 Nov 2026: at the full strength it stood out). A vector can't blur, so it is stacked circles, each a little larger and nearly clear, as Clock's dial. The canvas is twice the dot's size with the dot's place in its middle; a separate image, as the dot itself is tinted with its calendar's color. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <path android:fillColor="#FF000000" android:fillAlpha="0.050" android:pathData="M4.60,10.5a5.4,5.4 0 1,0 10.80,0a5.4,5.4 0 1,0 -10.80,0Z" />
+    <path android:fillColor="#FF000000" android:fillAlpha="0.045" android:pathData="M3.80,10.5a6.2,6.2 0 1,0 12.40,0a6.2,6.2 0 1,0 -12.40,0Z" />
+    <path android:fillColor="#FF000000" android:fillAlpha="0.040" android:pathData="M3.00,10.5a7.0,7.0 0 1,0 14.00,0a7.0,7.0 0 1,0 -14.00,0Z" />
+    <path android:fillColor="#FF000000" android:fillAlpha="0.035" android:pathData="M2.10,10.5a7.9,7.9 0 1,0 15.80,0a7.9,7.9 0 1,0 -15.80,0Z" />
+    <path android:fillColor="#FF000000" android:fillAlpha="0.030" android:pathData="M1.10,10.5a8.9,8.9 0 1,0 17.80,0a8.9,8.9 0 1,0 -17.80,0Z" />
+    <path android:fillColor="#FF000000" android:fillAlpha="0.025" android:pathData="M0.10,10.5a9.9,9.9 0 1,0 19.80,0a9.9,9.9 0 1,0 -19.80,0Z" />
+</vector>

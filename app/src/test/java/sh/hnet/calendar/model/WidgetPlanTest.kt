@@ -120,6 +120,14 @@ class WidgetPlanTest {
     }
 
     @Test
+    fun bareLinesCountWholeLinesUnderTheDate() {
+        // The date 22 dp, then 24 a line (6 above, 18 high)
+        assertEquals(4, WidgetPlan.bareLines(22 + 4 * 24))
+        assertEquals(3, WidgetPlan.bareLines(22 + 4 * 24 - 1))
+        assertEquals(1, WidgetPlan.bareLines(30))
+    }
+
+    @Test
     fun dayWords() {
         assertEquals(DayWord.TODAY, WidgetPlan.dayWord(today, today))
         assertEquals(DayWord.TOMORROW, WidgetPlan.dayWord(today + 1, today))

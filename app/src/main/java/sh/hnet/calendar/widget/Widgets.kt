@@ -31,6 +31,7 @@ import sh.hnet.calendar.CalendarApplication
 import sh.hnet.calendar.MainActivity
 import sh.hnet.calendar.R
 import sh.hnet.calendar.model.AgendaPiece
+import sh.hnet.calendar.model.AgendaRow
 import sh.hnet.calendar.model.CalendarChoices
 import sh.hnet.calendar.model.CalendarColor
 import sh.hnet.calendar.model.CalendarView
@@ -43,6 +44,7 @@ import sh.hnet.calendar.model.RowTime
 import sh.hnet.calendar.model.WidgetPlan
 import sh.hnet.calendar.ui.calendar.CalendarFormats
 import sh.hnet.calendar.ui.calendar.systemWeekStart
+import sh.hnet.calendar.ui.theme.bareRes
 import sh.hnet.calendar.ui.theme.fillRes
 import sh.hnet.calendar.ui.theme.onRes
 
@@ -88,7 +90,8 @@ sealed interface WidgetRequest {
 }
 
 /**
- * The home-screen widgets (SPEC §17; stage 10: Agenda, Next event, Month, Upcoming events), plain
+ * The home-screen widgets (SPEC §17; stage 10: Agenda, Next event, Month, Upcoming events; stage 11:
+ * Upcoming events and Agenda without a background), plain
  * remote views as News's and Clock's. They show the calendars the app shows, in their colors
  * (§17.11), leave out what is over, canceled or declined, and never scroll (the owner, 16 Nov 2026).
  * Colors are resources the launcher resolves – calendar fills too, set by id –, so a change of
@@ -146,7 +149,9 @@ object Widgets {
         val next = ids(NextEventWidget::class.java)
         val month = ids(MonthWidget::class.java)
         val upcoming = ids(UpcomingWidget::class.java)
-        if (agenda.isEmpty() && next.isEmpty() && month.isEmpty() && upcoming.isEmpty()) {
+        val upcomingBare = ids(UpcomingBareWidget::class.java)
+        val agendaBare = ids(AgendaBareWidget::class.java)
+        if (agenda.isEmpty() && next.isEmpty() && month.isEmpty() && upcoming.isEmpty() && upcomingBare.isEmpty() && agendaBare.isEmpty()) {
             scheduleChange(app, null)
             return
         }
@@ -179,8 +184,8 @@ object Widgets {
 
             val drawn = HashMap<Int, RemoteViews>()
             val soon = WidgetPlan.upcoming(occurrences, now, today, 2)
+            val days = if (agenda.isNotEmpty() || agendaBare.isNotEmpty()) WidgetPlan.agendaDays(occurrences, now, today) else emptyList()
             if (agenda.isNotEmpty()) {
-                val days = WidgetPlan.agendaDays(occurrences, now, today)
                 agenda.forEach { id -> drawn[id] = agenda(app, words, WidgetPlan.fit(days, manager.getAppWidgetOptions(id).height() - LIST_PADDING_DP), colors, today, ready, canWrite) }
             }
             next.forEach { id -> drawn[id] = next(app, words, soon.firstOrNull(), colors, today, ready) }
@@ -190,6 +195,10 @@ object Widgets {
                 month.forEach { id -> drawn[id] = views }
             }
             upcoming.forEach { id -> drawn[id] = upcoming(app, words, soon, colors, today, ready) }
+            upcomingBare.forEach { id -> drawn[id] = upcomingBare(app, words, soon, colors, today, ready) }
+            // Today is always the first of the days
+            val todays = days.firstOrNull { it.day == today }?.rows.orEmpty()
+            agendaBare.forEach { id -> drawn[id] = agendaBare(app, words, todays, WidgetPlan.bareLines(manager.getAppWidgetOptions(id).height()), colors, today, ready) }
 
             withContext(Dispatchers.Main) {
                 drawn.forEach { (id, views) ->
@@ -379,6 +388,71 @@ object Widgets {
         }
     }
 
+    /** Upcoming events without a background, 4 × 1 (§17.7): the nearest event in bold and the one after it, white on the wallpaper. */
+    private fun upcomingBare(context: Context, words: Words, events: List<Occurrence>, colors: Map<Long, CalendarColor>, today: Int, ready: Boolean): RemoteViews {
+        if (events.isEmpty()) {
+            return RemoteViews(context.packageName, R.layout.widget_upcoming_bare_nothing).apply {
+                setTextViewText(R.id.nothing, context.getString(R.string.widget_nothing_planned))
+                setOnClickPendingIntent(R.id.nothing, open(context, if (ready) WidgetRequest.Day(today, CalendarView.DAY) else WidgetRequest.Open))
+            }
+        }
+        return RemoteViews(context.packageName, R.layout.widget_upcoming_bare).apply {
+            listOf(
+                listOf(R.id.first_line, R.id.first_dot, R.id.first_time, R.id.first_title),
+                listOf(R.id.second_line, R.id.second_dot, R.id.second_time, R.id.second_title),
+            ).forEachIndexed { index, (line, dot, timeView, titleView) ->
+                val event = events.getOrNull(index)
+                setViewVisibility(line, if (event == null) View.GONE else View.VISIBLE)
+                if (event == null) return@forEachIndexed
+                setColorStateList(dot, "setImageTintList", (colors[event.calendarId] ?: CalendarColor.GRAPHITE).bareRes())
+                val time = words.dayAndTime(context, event, today)
+                val title = words.title(context, event)
+                setTextViewText(timeView, time)
+                setTextViewText(titleView, title)
+                setContentDescription(line, context.getString(R.string.content_description_widget_event, title, time))
+                setOnClickPendingIntent(line, open(context, WidgetRequest.Event(event.eventId, event.begin, event.end)))
+            }
+        }
+    }
+
+    /**
+     * Agenda without a background, 3 × 2 (§17.8): today's date and one line per event of today
+     * not over yet – all-day ones first, as in the Agenda –, as many as [lines] says fit; else
+     * "Nothing planned" under the date.
+     */
+    private fun agendaBare(context: Context, words: Words, rows: List<AgendaRow>, lines: Int, colors: Map<Long, CalendarColor>, today: Int, ready: Boolean): RemoteViews =
+        RemoteViews(context.packageName, R.layout.widget_agenda_bare).apply {
+            removeAllViews(R.id.list)
+            addView(R.id.list, RemoteViews(context.packageName, R.layout.widget_agenda_bare_date).apply {
+                setTextViewText(R.id.date, words.longDay(today))
+                setOnClickPendingIntent(R.id.date, open(context, if (ready) WidgetRequest.Day(today, CalendarView.DAY) else WidgetRequest.Open))
+            })
+            if (rows.isEmpty()) {
+                addView(R.id.list, RemoteViews(context.packageName, R.layout.widget_agenda_bare_line).apply {
+                    setViewVisibility(R.id.dot, View.GONE)
+                    setViewVisibility(R.id.time, View.GONE)
+                    setTextViewText(R.id.title, context.getString(R.string.widget_nothing_planned))
+                    setOnClickPendingIntent(R.id.line, open(context, if (ready) WidgetRequest.Day(today, CalendarView.DAY) else WidgetRequest.Open))
+                })
+            }
+            for (row in rows.take(lines)) {
+                val event = row.occurrence
+                addView(R.id.list, RemoteViews(context.packageName, R.layout.widget_agenda_bare_line).apply {
+                    setColorStateList(R.id.dot, "setImageTintList", (colors[event.calendarId] ?: CalendarColor.GRAPHITE).bareRes())
+                    val time = when (row.time) {
+                        RowTime.ALL_DAY -> context.getString(R.string.widget_all_day_short)
+                        RowTime.END -> context.getString(R.string.label_until_time, words.formats.time(event.end))
+                        else -> words.formats.time(event.begin)
+                    }
+                    val title = words.title(context, event)
+                    setTextViewText(R.id.time, time)
+                    setTextViewText(R.id.title, title)
+                    setContentDescription(R.id.line, context.getString(R.string.content_description_widget_event, title, time))
+                    setOnClickPendingIntent(R.id.line, open(context, WidgetRequest.Event(event.eventId, event.begin, event.end)))
+                })
+            }
+        }
+
     /** The included badge's text and symbol. */
     private fun RemoteViews.badge(context: Context, text: String, icon: Int = R.drawable.ic_event) {
         setTextViewText(R.id.badge_text, text)
@@ -479,3 +553,9 @@ class MonthWidget : CalendarWidget()
 
 /** Upcoming events, 4 × 1 (SPEC §17.6). */
 class UpcomingWidget : CalendarWidget()
+
+/** Upcoming events without a background, 4 × 1 (SPEC §17.7). */
+class UpcomingBareWidget : CalendarWidget()
+
+/** Agenda without a background, 3 × 2 (SPEC §17.8). */
+class AgendaBareWidget : CalendarWidget()

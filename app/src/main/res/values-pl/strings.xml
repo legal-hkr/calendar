@@ -539,6 +539,10 @@
     <string name="widget_month_description">Miesiąc ze znacznikami w dniach z wydarzeniami.</string>
     <string name="widget_upcoming_name">Najbliższe wydarzenia</string>
     <string name="widget_upcoming_description">Najbliższe wydarzenie i następne po nim.</string>
+    <string name="widget_upcoming_bare_name">Najbliższe wydarzenia bez tła</string>
+    <string name="widget_upcoming_bare_description">Dwa najbliższe wydarzenia na tapecie.</string>
+    <string name="widget_agenda_bare_name">Harmonogram bez tła</string>
+    <string name="widget_agenda_bare_description">Dzisiejsze wydarzenia na tapecie.</string>
     <string name="widget_all_day_short">cały dzień</string>
     <string name="widget_day_and_time">%1$s %2$s</string>
     <string name="widget_tomorrow_lowercase">jutro</string>

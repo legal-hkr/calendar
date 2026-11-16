@@ -139,6 +139,29 @@
                 android:resource="@xml/widget_upcoming" />
         </receiver>
 
+        <receiver
+            android:name=".widget.UpcomingBareWidget"
+            android:exported="true"
+            android:label="@string/widget_upcoming_bare_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_upcoming_bare" />
+        </receiver>
+        <receiver
+            android:name=".widget.AgendaBareWidget"
+            android:exported="true"
+            android:label="@string/widget_agenda_bare_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_agenda_bare" />
+        </receiver>
+
         <!-- Hands the one event being shared as a file to the app the user picks; nothing else is reachable -->
         <provider
             android:name="androidx.core.content.FileProvider"

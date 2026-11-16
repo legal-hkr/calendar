@@ -95,3 +95,19 @@ private fun CalendarColor.outlineRes(): Int = when (this) {
     CalendarColor.RASPBERRY -> R.color.calendar_raspberry_outline
     CalendarColor.GRAPHITE -> R.color.calendar_graphite_outline
 }
+
+/** A dot on a widget without a background (SPEC §17.7): the dark theme's fill in both themes. */
+fun CalendarColor.bareRes(): Int = when (this) {
+    CalendarColor.RED -> R.color.calendar_red_bare
+    CalendarColor.ORANGE -> R.color.calendar_orange_bare
+    CalendarColor.AMBER -> R.color.calendar_amber_bare
+    CalendarColor.OLIVE -> R.color.calendar_olive_bare
+    CalendarColor.GREEN -> R.color.calendar_green_bare
+    CalendarColor.TEAL -> R.color.calendar_teal_bare
+    CalendarColor.SKY -> R.color.calendar_sky_bare
+    CalendarColor.BLUE -> R.color.calendar_blue_bare
+    CalendarColor.VIOLET -> R.color.calendar_violet_bare
+    CalendarColor.MAGENTA -> R.color.calendar_magenta_bare
+    CalendarColor.RASPBERRY -> R.color.calendar_raspberry_bare
+    CalendarColor.GRAPHITE -> R.color.calendar_graphite_bare
+}

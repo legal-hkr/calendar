@@ -16,6 +16,14 @@ class CalendarColorTest {
     }
 
     @Test
+    fun bareDotsAreTheDarkFillsInBothThemes() {
+        val night = colors("src/main/res/values-night/calendar_colors.xml")
+        val bare = colors("src/main/res/values/calendar_colors_bare.xml")
+        assertEquals(CalendarColor.entries.size, bare.size)
+        for (color in CalendarColor.entries) assertEquals(color.key, night["calendar_${color.key}_fill"], bare["calendar_${color.key}_bare"])
+    }
+
+    @Test
     fun bothThemesDefineEveryColor() {
         val light = colors("src/main/res/values/calendar_colors.xml")
         val night = colors("src/main/res/values-night/calendar_colors.xml")

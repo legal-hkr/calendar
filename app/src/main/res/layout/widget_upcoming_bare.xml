@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Upcoming events without a background (SPEC §17.7), one cell high: two lines straight on the wallpaper, white with the soft shadow of Clock's widgets without a background. The nearest event with a 10 dp dot, its time and title at 16 dp bold (700); the one after it with an 8 dp dot at 14 dp regular (400) – two lines of their own, as a remote view can't change a weight. Dots in the dark theme's calendar colors in both themes. With one event the second line is gone. Sizes are in dp, text too. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="SpUsage,ContentDescription"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_floating_frame"
+    android:clipChildren="false"
+    android:clipToOutline="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:orientation="vertical"
+        android:paddingStart="6dp"
+        android:paddingEnd="4dp">
+
+        <LinearLayout
+            android:id="@+id/first_line"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:clipChildren="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- The dot over its shadow; the frame is twice the dot's size and gives the line back the half on each side -->
+            <FrameLayout
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="-5dp"
+                android:layout_marginTop="-5dp"
+                android:layout_marginEnd="-5dp"
+                android:layout_marginBottom="-5dp">
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_bare_dot_shadow" />
+
+                <ImageView
+                    android:id="@+id/first_dot"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/widget_dot" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/first_time"
+                style="@style/WidgetBareText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text=""
+                android:textSize="16dp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/first_title"
+                style="@style/WidgetBareText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:text=""
+                android:textSize="16dp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/second_line"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:baselineAligned="false"
+            android:clipChildren="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- The dot over its shadow; the frame is twice the dot's size and gives the line back the half on each side -->
+            <FrameLayout
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="-3dp"
+                android:layout_marginTop="-4dp"
+                android:layout_marginEnd="-3dp"
+                android:layout_marginBottom="-4dp">
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_bare_dot_shadow" />
+
+                <ImageView
+                    android:id="@+id/second_dot"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/widget_dot" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/second_time"
+                style="@style/WidgetBareText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text=""
+                android:textSize="14dp" />
+
+            <TextView
+                android:id="@+id/second_title"
+                style="@style/WidgetBareText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:text=""
+                android:textSize="14dp" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

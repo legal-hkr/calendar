@@ -49,6 +49,10 @@ object WidgetPlan {
     const val STRIP_DP = 56
     const val GAP_DP = 6
 
+    /** The Agenda without a background (§17.8): the date's line and an event's line, in dp; [GAP_DP] between lines. */
+    const val BARE_DATE_DP = 22
+    const val BARE_LINE_DP = 18
+
     private const val MAX_DOTS = 3
 
     /** What a widget shows at all: neither a canceled event nor an invitation the user declined. */
@@ -99,6 +103,13 @@ object WidgetPlan {
         }
         return pieces
     }
+
+    /**
+     * How many of today's lines the Agenda without a background has room for under the date in
+     * [heightDp] (§17.8: as many as fit): at least one, so the first event or "Nothing planned"
+     * is always there.
+     */
+    fun bareLines(heightDp: Int): Int = ((heightDp - BARE_DATE_DP) / (GAP_DP + BARE_LINE_DP)).coerceAtLeast(1)
 
     /**
      * The six weeks of the Month widget for the month [number] (§17.5), each day with the calendars

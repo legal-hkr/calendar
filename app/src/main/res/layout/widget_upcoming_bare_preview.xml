@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Upcoming events without a background, the widget picker's preview with sample content. Only views a remote view may inflate. The content stands 8 dp inside, as the other previews. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="SpUsage,ContentDescription,HardcodedText,UseAppTint"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_floating_frame"
+    android:clipChildren="false"
+    android:clipToOutline="true"
+    android:clipToPadding="false"
+    android:padding="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:orientation="vertical"
+        android:paddingStart="6dp"
+        android:paddingEnd="4dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:clipChildren="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- The dot over its shadow; the frame is twice the dot's size and gives the line back the half on each side -->
+            <FrameLayout
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="-5dp"
+                android:layout_marginTop="-5dp"
+                android:layout_marginEnd="-5dp"
+                android:layout_marginBottom="-5dp">
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_bare_dot_shadow" />
+
+                <ImageView
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/widget_dot"
+                    android:tint="@color/calendar_teal_bare" />
+            </FrameLayout>
+
+            <TextView
+                style="@style/WidgetBareText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="10:00"
+                android:textSize="16dp"
+                android:textStyle="bold" />
+
+            <TextView
+                style="@style/WidgetBareText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:text="Release planning"
+                android:textSize="16dp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:baselineAligned="false"
+            android:clipChildren="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- The dot over its shadow; the frame is twice the dot's size and gives the line back the half on each side -->
+            <FrameLayout
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="-3dp"
+                android:layout_marginTop="-4dp"
+                android:layout_marginEnd="-3dp"
+                android:layout_marginBottom="-4dp">
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/widget_bare_dot_shadow" />
+
+                <ImageView
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/widget_dot"
+                    android:tint="@color/calendar_blue_bare" />
+            </FrameLayout>
+
+            <TextView
+                style="@style/WidgetBareText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="12:15"
+                android:textSize="14dp" />
+
+            <TextView
+                style="@style/WidgetBareText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:text="Call the service desk"
+                android:textSize="14dp" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

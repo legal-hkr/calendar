@@ -61,16 +61,14 @@ object Month {
      * becomes a bar in each week it touches, longer and earlier bars on the upper lines. Events of one day are
      * listed on it, all-day ones first, then by their start. Declined events are left out unless [showDeclined].
      */
-    fun build(occurrences: List<Occurrence>, firstDay: Int, showDeclined: Boolean = false): MonthGrid {
-        val lastDay = firstDay + WEEKS * 7 - 1
-        val shown = occurrences.filter { (showDeclined || !it.declined) && it.startDay <= lastDay && maxOf(it.endDay, it.startDay) >= firstDay }
+    fun build(occurrences: List<Occurrence>, firstDay: Int, showDeclined: Boolean = false): MonthGrid =
+        MonthGrid(firstDay, (0 until WEEKS).map { week(occurrences, firstDay + it * 7, showDeclined) })
+
+    /** The week row from [weekFirst]: Month draws its weeks one by one, each of them once, whichever months it lies in. */
+    fun week(occurrences: List<Occurrence>, weekFirst: Int, showDeclined: Boolean = false): MonthWeek {
+        val shown = occurrences.filter { (showDeclined || !it.declined) && it.startDay <= weekFirst + 6 && maxOf(it.endDay, it.startDay) >= weekFirst }
         val (long, single) = shown.partition { it.endDay > it.startDay }
-        val weeks = (0 until WEEKS).map { index ->
-            val weekFirst = firstDay + index * 7
-            val bars = bars(long, weekFirst)
-            MonthWeek(weekFirst, bars, (0 until 7).map { column -> single.filter { it.startDay == weekFirst + column }.sortedWith(DAY_ORDER) })
-        }
-        return MonthGrid(firstDay, weeks)
+        return MonthWeek(weekFirst, bars(long, weekFirst), (0 until 7).map { column -> single.filter { it.startDay == weekFirst + column }.sortedWith(DAY_ORDER) })
     }
 
     /**

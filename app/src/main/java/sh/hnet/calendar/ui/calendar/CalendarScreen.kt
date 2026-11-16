@@ -138,7 +138,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
     // Counts the moves made on purpose (Today, Go to date, another view), which Agenda answers by scrolling
     var jump by rememberSaveable { mutableIntStateOf(0) }
     val history: SnapshotStateList<Long> = rememberSaveable(saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) { mutableListOf<Long>().toMutableStateList() }
-    val pager = rememberPagerState(initialPage = MonthPages.of(focus)) { MonthPages.COUNT }
+    val monthScroll = remember(weekStart) { MonthScroll(MonthScroll.monthOf(focus), weekStart) }
     val weeks = remember(weekStart) { WeekPages(weekStart) }
     val weekPager = rememberPagerState(initialPage = weeks.of(focus)) { weeks.count }
     val dayPager = rememberPagerState(initialPage = DayPages.of(focus)) { DayPages.COUNT }
@@ -153,7 +153,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
         if (next != view) {
             // The view comes up already at its page, not a frame later
             when (next) {
-                CalendarView.MONTH -> pager.requestScrollToPage(MonthPages.of(day))
+                CalendarView.MONTH -> monthScroll.jumpTo(MonthScroll.monthOf(day))
                 CalendarView.WEEK -> weekPager.requestScrollToPage(weeks.of(day))
                 CalendarView.DAY -> dayPager.requestScrollToPage(DayPages.of(day))
                 CalendarView.AGENDA -> Unit
@@ -178,7 +178,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
     }
 
     val period = when (view) {
-        CalendarView.MONTH -> formats.month(Month.firstDate(MonthPages.month(pager.currentPage)))
+        CalendarView.MONTH -> formats.month(Month.firstDate(monthScroll.month))
         // A week over two months is named by its first day's (SPEC §3.2)
         CalendarView.WEEK -> formats.month(JulianDay.toDate(weeks.first(weekPager.currentPage)))
         CalendarView.DAY -> formats.dayOfMonth(JulianDay.toDate(DayPages.day(dayPager.currentPage)))
@@ -212,7 +212,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
                     state = state,
                     formats = formats,
                     weekStart = weekStart,
-                    pager = pager,
+                    scroll = monthScroll,
                     eventList = eventList,
                     focus = focus,
                     onFocus = { focus = it },

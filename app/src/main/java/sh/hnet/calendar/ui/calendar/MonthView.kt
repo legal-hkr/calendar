@@ -19,8 +19,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.ScrollScope
+import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.Layout
+import kotlinx.coroutines.flow.drop
+import sh.hnet.calendar.model.MonthWeek
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -45,9 +60,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -79,7 +92,6 @@ import sh.hnet.calendar.model.CalendarColor
 import sh.hnet.calendar.model.CalendarInfo
 import sh.hnet.calendar.model.JulianDay
 import sh.hnet.calendar.model.Month
-import sh.hnet.calendar.model.MonthGrid
 import sh.hnet.calendar.model.Occurrence
 import sh.hnet.calendar.model.TileLines
 import sh.hnet.calendar.ui.theme.dimmedFill
@@ -88,19 +100,103 @@ import sh.hnet.calendar.ui.theme.onFill
 import sh.hnet.calendar.ui.theme.outline
 import sh.hnet.calendar.ui.theme.text
 
-/** The pager's pages are the months of the years the date picker offers. */
-internal object MonthPages {
-    private const val FIRST_YEAR = 1900
-    private const val LAST_YEAR = 2100
-    const val COUNT = (LAST_YEAR - FIRST_YEAR + 1) * 12
+/**
+ * Where Month's grid is scrolled to. The weeks lie one under another without end and each is there
+ * once – also the week two months share, which pages of months showed twice while they moved (the
+ * owner, 16 Nov 2026). The grid comes to rest with a month's first week at its top; a swipe takes
+ * it one month on.
+ */
+@Stable
+class MonthScroll(month: Int, private val weekStart: DayOfWeek) {
+    /** The Julian day at the grid's top edge; between two weeks while it moves. */
+    private val topState = mutableDoubleStateOf(start(month.coerceIn(FIRST, LAST)).toDouble())
+    val top: Double get() = topState.doubleValue
 
-    /** The page of the month the Julian [day] is in. */
-    fun of(day: Int): Int = (Month.number(JulianDay.toDate(day)) - FIRST_YEAR * 12).coerceIn(0, COUNT - 1)
+    /** The month whose first week is nearest to the top: the one the title names and the days are counted to. */
+    val month: Int by derivedStateOf { nearest(topState.doubleValue) }
 
-    fun month(page: Int): Int = FIRST_YEAR * 12 + page
+    /** The month the grid came to rest at. */
+    var settled by mutableIntStateOf(month.coerceIn(FIRST, LAST))
+        private set
 
-    /** The day a month is entered on: today in the current month, else its first day. */
-    fun entryDay(page: Int, today: Int): Int = if (of(today) == page) today else JulianDay.of(Month.firstDate(month(page)))
+    /** A row's height and the speed from which a release counts as a swipe, in pixels; the layout tells them. */
+    var rowPx = 1f
+    var swipe = 0f
+
+    /** The Julian day the grid starts with when it rests at the month [number]. */
+    fun start(number: Int): Int = Month.gridStart(number, weekStart)
+
+    /** The month with its first week at or above [top]. */
+    private fun floor(top: Double): Int {
+        // The last day of the row that holds the top edge is in that month
+        val anchor = start(FIRST)
+        val row = anchor + Math.floorDiv(kotlin.math.floor(top).toInt() - anchor, 7) * 7
+        return Month.number(JulianDay.toDate(row + 6)).coerceIn(FIRST, LAST)
+    }
+
+    private fun nearest(top: Double): Int {
+        val below = floor(top)
+        if (below >= LAST) return LAST
+        return if (top - start(below) < start(below + 1) - top) below else below + 1
+    }
+
+    val scrollable = ScrollableState { delta ->
+        val before = topState.doubleValue
+        val next = (before + delta / rowPx * 7.0).coerceIn(start(FIRST).toDouble(), start(LAST).toDouble())
+        topState.doubleValue = next
+        ((next - before) / 7.0 * rowPx).toFloat()
+    }
+
+    /** A release: on with a swipe to the month ahead or back, else to the nearest. */
+    val fling = object : FlingBehavior {
+        override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
+            val below = floor(top)
+            val target = when {
+                initialVelocity > swipe -> (below + 1).coerceAtMost(LAST)
+                // At rest on a month's first week a swipe back goes to the month before
+                initialVelocity < -swipe -> if (top > start(below)) below else (below - 1).coerceAtLeast(FIRST)
+                else -> nearest(top)
+            }
+            // One month a swipe, as a pager turns one page: however far the finger went
+            glide(target.coerceIn(settled - 1, settled + 1).coerceIn(FIRST, LAST), initialVelocity)
+            return 0f
+        }
+    }
+
+    private suspend fun ScrollScope.glide(target: Int, velocity: Float) {
+        val distance = ((start(target) - top) / 7.0 * rowPx).toFloat()
+        var done = 0f
+        // A spring thrown at its target faster than this runs past it; the grid should arrive, not bounce
+        val limit = kotlin.math.sqrt(Spring.StiffnessMediumLow) * kotlin.math.abs(distance)
+        animate(0f, distance, velocity.coerceIn(-limit, limit), spring(stiffness = Spring.StiffnessMediumLow)) { value, _ ->
+            scrollBy(value - done)
+            done = value
+        }
+        // Exactly on the week, whatever the steps added up to
+        topState.doubleValue = start(target).toDouble()
+        settled = target
+    }
+
+    /** Scrolls to the month [number], as a swipe would. */
+    suspend fun animateTo(number: Int) = scrollable.scroll { glide(number.coerceIn(FIRST, LAST), 0f) }
+
+    /** Shows the month [number] at once. */
+    fun jumpTo(number: Int) {
+        val target = number.coerceIn(FIRST, LAST)
+        topState.doubleValue = start(target).toDouble()
+        settled = target
+    }
+
+    companion object {
+        /** The months of the years the date picker offers. */
+        const val FIRST = 1900 * 12
+        const val LAST = 2100 * 12 + 11
+
+        fun monthOf(day: Int): Int = Month.number(JulianDay.toDate(day)).coerceIn(FIRST, LAST)
+
+        /** The day a month is entered on: today in the current month, else its first day. */
+        fun entryDay(number: Int, today: Int): Int = if (monthOf(today) == number) today else JulianDay.of(Month.firstDate(number))
+    }
 }
 
 /** A calendar color's values in this theme, read once for drawing. */
@@ -114,17 +210,18 @@ internal fun tilePalette(): Map<CalendarColor, TileColors> {
 }
 
 /**
- * Month (SPEC §6, boards 01 and 02): a page per month, scrolled up and down (the owner's choice over the SPEC's sideways swipe). With [eventList] off the
+ * Month (SPEC §6, boards 01 and 02): the weeks scrolled up and down (the owner's choice over the SPEC's sideways swipe),
+ * a month at a time. With [eventList] off the
  * full grid with tiles, where a tap on a day calls [onOpenDay]; with it on the compact grid with
  * marks, where a tap chooses the day ([onFocus]) whose events are listed below. [focus] is the day
- * the screen is at: the pager follows it, and scrolling to another month moves it there.
+ * the screen is at: the grid follows it, and scrolling to another month moves it there.
  */
 @Composable
 fun MonthView(
     state: CalendarState.Ready,
     formats: CalendarFormats,
     weekStart: DayOfWeek,
-    pager: PagerState,
+    scroll: MonthScroll,
     eventList: Boolean,
     focus: Int,
     onFocus: (Int) -> Unit,
@@ -133,12 +230,25 @@ fun MonthView(
     viewModel: RangeViewModel = viewModel(key = "month"),
 ) {
     val events by viewModel.events.collectAsStateWithLifecycle()
+    val currentFocus by rememberUpdatedState(focus)
+    val currentOnFocus by rememberUpdatedState(onFocus)
+    val today by rememberUpdatedState(state.today)
+    // Today, Go to date, a day chosen in another month: the month next door is scrolled to, any other shown at once
+    LaunchedEffect(focus, scroll) {
+        val month = MonthScroll.monthOf(focus)
+        if (scroll.settled != month) {
+            if (kotlin.math.abs(month - scroll.settled) == 1) scroll.animateTo(month) else scroll.jumpTo(month)
+        }
+    }
     // A swipe puts the screen on today in the current month, else on the month's first day
-    PagerFocus(pager, focus, MonthPages::of, { page, _ -> MonthPages.entryDay(page, state.today) }, onFocus)
-    LaunchedEffect(pager) {
-        snapshotFlow { pager.currentPage }.collect {
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.settled }.drop(1).collect { month ->
+            if (MonthScroll.monthOf(currentFocus) != month) currentOnFocus(MonthScroll.entryDay(month, today))
+        }
+    }
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.month }.collect { month ->
             // The month and both its neighbors, whichever day their weeks start with
-            val month = MonthPages.month(it)
             viewModel.show(JulianDay.of(Month.firstDate(month - 1)) - MONTH_LEAD, JulianDay.of(Month.firstDate(month + 1)) + MONTH_SPAN)
         }
     }
@@ -165,31 +275,45 @@ fun MonthView(
         val showList by remember { derivedStateOf { list.value > 0f } }
         val navigationBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val compactHeight = COMPACT_ROW * Month.WEEKS
+        val swipe = with(LocalDensity.current) { SWIPE_SPEED.toPx() }
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             // The full grid shares all the height above the system's navigation area; the compact one has rows of 48 dp
             val fullHeight = (maxHeight - navigationBar).coerceAtLeast(compactHeight)
             val fullSize = with(LocalDensity.current) { Size(maxWidth.toPx(), fullHeight.toPx()) }
             Column(Modifier.fillMaxSize()) {
-                VerticalPager(
-                    state = pager,
-                    key = { it },
-                    // The neighbors are ready before a swipe starts
-                    beyondViewportPageCount = 1,
-                    // The height is read while laying out, so the motion composes nothing anew
-                    modifier = Modifier.fillMaxWidth().layout { measurable, constraints ->
-                        val height = lerp(fullHeight.toPx(), compactHeight.toPx(), list.value.coerceIn(0f, 1f)).roundToInt().coerceAtMost(constraints.maxHeight)
-                        val placeable = measurable.measure(constraints.copy(minHeight = height, maxHeight = height))
-                        layout(placeable.width, height) { placeable.place(0, 0) }
+                // The weeks of the month the grid is at and of both its neighbors are ready before a swipe starts
+                val month = scroll.month
+                val weeks = remember(month, scroll) { (scroll.start(month - 1) until scroll.start(month + 1) + Month.WEEKS * 7 step 7).toList() }
+                val shownMonth = remember(scroll) { { scroll.month } }
+                Layout(
+                    content = {
+                        for (weekFirst in weeks) {
+                            key(weekFirst) {
+                                val week = remember(events, weekFirst) { Month.week(if (events.covers(weekFirst, weekFirst + 6)) events.occurrences else emptyList(), weekFirst) }
+                                Box {
+                                    if (showFull) FullWeek(week, shownMonth, state, palette, formats, fullSize, Modifier.graphicsLayer { alpha = 1f - list.value.coerceIn(0f, 1f) })
+                                    if (showList) CompactWeek(week, shownMonth, focus, state, palette, Modifier.graphicsLayer { alpha = list.value.coerceIn(0f, 1f) })
+                                    DayTargets(weekFirst, formats, if (eventList) onFocus else onOpenDay)
+                                }
+                            }
+                        }
                     },
-                ) { page ->
-                    val number = MonthPages.month(page)
-                    val grid = remember(events, number, weekStart) {
-                        Month.build(if (events.covers(number)) events.occurrences else emptyList(), Month.gridStart(number, weekStart))
-                    }
-                    Box(Modifier.fillMaxSize()) {
-                        if (showFull) FullMonth(grid, number, state, palette, formats, fullSize, Modifier.graphicsLayer { alpha = 1f - list.value.coerceIn(0f, 1f) })
-                        if (showList) CompactMonth(grid, number, focus, state, palette, Modifier.graphicsLayer { alpha = list.value.coerceIn(0f, 1f) })
-                        DayTargets(grid.firstDay, formats, if (eventList) onFocus else onOpenDay)
+                    modifier = Modifier.fillMaxWidth().clipToBounds().scrollable(scroll.scrollable, Orientation.Vertical, reverseDirection = true, flingBehavior = scroll.fling),
+                ) { measurables, constraints ->
+                    // The height is read while laying out and the place of the rows while placing them, so neither motion composes anything anew
+                    val height = lerp(fullHeight.toPx(), compactHeight.toPx(), list.value.coerceIn(0f, 1f)).roundToInt().coerceAtMost(constraints.maxHeight)
+                    val row = height / Month.WEEKS.toFloat()
+                    scroll.rowPx = row.coerceAtLeast(1f)
+                    scroll.swipe = swipe
+                    val rowHeight = kotlin.math.ceil(row).toInt()
+                    val placeables = measurables.map { it.measure(Constraints.fixed(constraints.maxWidth, rowHeight)) }
+                    layout(constraints.maxWidth, height) {
+                        val top = scroll.top
+                        placeables.forEachIndexed { index, placeable ->
+                            val y = ((weeks[index] - top) / 7.0 * row).roundToInt()
+                            // A row out of sight is not drawn
+                            if (y > -rowHeight && y < height) placeable.placeWithLayer(0, y)
+                        }
                     }
                 }
                 if (showList) {
@@ -203,44 +327,37 @@ fun MonthView(
     }
 }
 
-/** The days as targets over the drawn grid (SPEC §6.1, §20): the whole cell is one. */
+/** A week's days as targets over the drawn row (SPEC §6.1, §20): the whole cell is one. */
 @Composable
 private fun DayTargets(firstDay: Int, formats: CalendarFormats, onDay: (Int) -> Unit) {
-    val names = remember(firstDay, formats) {
-        List(Month.WEEKS * 7) { formats.capitalize(formats.day(JulianDay.toDate(firstDay + it), Int.MIN_VALUE)) }
-    }
-    Column(Modifier.fillMaxSize()) {
-        repeat(Month.WEEKS) { week ->
-            Row(Modifier.fillMaxWidth().weight(1f)) {
-                repeat(7) { column ->
-                    val index = week * 7 + column
-                    Box(Modifier.weight(1f).fillMaxHeight().clickable(role = Role.Button) { onDay(firstDay + index) }.semantics { contentDescription = names[index] })
-                }
-            }
+    val names = remember(firstDay, formats) { List(7) { formats.capitalize(formats.day(JulianDay.toDate(firstDay + it), Int.MIN_VALUE)) } }
+    Row(Modifier.fillMaxSize()) {
+        repeat(7) { column ->
+            Box(Modifier.weight(1f).fillMaxHeight().clickable(role = Role.Button) { onDay(firstDay + column) }.semantics { contentDescription = names[column] })
         }
     }
 }
 
 /**
- * The full grid (SPEC §6.1) with the tiles of §5, drawn in one pass: the lines a tile gets depend
- * on how its title wraps, so the text is measured here anyway. The rows are laid out for [fullSize],
- * the grid's size at rest, and drawn at a sixth of the height there is – so while the grid changes
- * into the compact one its rows only move closer and are cut short, and nothing is laid out anew.
+ * A week of the full grid (SPEC §6.1) with the tiles of §5, drawn in one pass: the lines a tile
+ * gets depend on how its title wraps, so the text is measured here anyway. The row is laid out for
+ * a sixth of [fullSize], the grid's size at rest, and cut where the row ends – so while the grid
+ * changes into the compact one its rows only move closer and are cut short, and nothing is laid
+ * out anew. [shownMonth] is read while drawing: the days of other months are paler.
  */
 @Composable
-private fun FullMonth(grid: MonthGrid, number: Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats, fullSize: Size, modifier: Modifier = Modifier) {
+private fun FullWeek(week: MonthWeek, shownMonth: () -> Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats, fullSize: Size, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
-    val measurer = rememberTextMeasurer(cacheSize = 128)
+    val measurer = rememberTextMeasurer(cacheSize = 32)
     val scheme = MaterialTheme.colorScheme
     val noTitle = stringResource(R.string.label_no_title)
     val moreText = stringResource(R.string.label_more_events)
     val numberStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
     val titleStyle = tileTitleStyle()
     val timeStyle = titleStyle.copy(fontWeight = FontWeight.Normal, hyphens = Hyphens.None)
-    val rows = remember(grid, number, state, palette, formats, fullSize, density, scheme, numberStyle, titleStyle, noTitle, moreText) {
+    val ops = remember(week, state, palette, formats, fullSize, density, scheme, numberStyle, titleStyle, noTitle, moreText) {
         with(density) {
             val painter = TilePainter(measurer, palette, state.calendars, state.now, state.today, formats, noTitle, titleStyle, timeStyle, this)
-            val rows = ArrayList<List<DrawScope.() -> Unit>>()
             val rowHeight = fullSize.height / Month.WEEKS
             val columnWidth = fullSize.width / 7
             val line = painter.line
@@ -256,75 +373,62 @@ private fun FullMonth(grid: MonthGrid, number: Int, state: CalendarState.Ready, 
             val circle = 12.dp.toPx()
             val stroke = 1.dp.toPx()
 
-            for (week in grid.weeks) {
-                // Each row in its own coordinates
-                val ops = ArrayList<DrawScope.() -> Unit>()
-                val rowTop = 0f
-                ops += { drawLine(scheme.outlineVariant, Offset(0f, rowTop + stroke / 2), Offset(size.width, rowTop + stroke / 2), stroke) }
-                for (column in 0 until 7) {
-                    val day = week.firstDay + column
-                    val date = JulianDay.toDate(day)
-                    val isToday = day == state.today
-                    val center = Offset((column + 0.5f) * columnWidth, rowTop + 3.dp.toPx() + circle)
-                    val color = if (isToday) scheme.onPrimary else if (Month.number(date) != number) scheme.outline else scheme.onSurface
-                    val text = measurer.measure(date.dayOfMonth.toString(), if (isToday) numberStyle.copy(fontWeight = FontWeight.Medium) else numberStyle, maxLines = 1)
-                    ops += {
-                        if (isToday) drawCircle(scheme.primary, circle, center)
-                        drawText(text, color, Offset(center.x - text.size.width / 2f, center.y - text.size.height / 2f))
-                    }
+            val ops = ArrayList<DrawScope.() -> Unit>()
+            ops += { drawLine(scheme.outlineVariant, Offset(0f, stroke / 2), Offset(size.width, stroke / 2), stroke) }
+            for (column in 0 until 7) {
+                val day = week.firstDay + column
+                val date = JulianDay.toDate(day)
+                val month = Month.number(date)
+                val isToday = day == state.today
+                val center = Offset((column + 0.5f) * columnWidth, 3.dp.toPx() + circle)
+                val text = measurer.measure(date.dayOfMonth.toString(), if (isToday) numberStyle.copy(fontWeight = FontWeight.Medium) else numberStyle, maxLines = 1)
+                ops += {
+                    if (isToday) drawCircle(scheme.primary, circle, center)
+                    val color = if (isToday) scheme.onPrimary else if (month != shownMonth()) scheme.outline else scheme.onSurface
+                    drawText(text, color, Offset(center.x - text.size.width / 2f, center.y - text.size.height / 2f))
                 }
-                val fill = Month.fill(week, slots)
-                for (bar in fill.bars) {
-                    val left = bar.firstColumn * columnWidth + if (bar.startsBefore) 0f else side
-                    val right = (bar.lastColumn + 1) * columnWidth - if (bar.endsAfter) 0f else side
-                    val title = painter.title(bar.occurrence, (right - left - TILE_PADDING_HORIZONTAL.toPx() * 2).toInt().coerceAtLeast(1), wrap = false)
-                    ops += painter.tile(bar.occurrence, left, rowTop + top + bar.lane * (oneLine + gap), right - left, oneLine, TileLines(false, 1), title, bar.startsBefore, bar.endsAfter)
-                }
-                for (column in 0 until 7) {
-                    val cell = fill.cells[column]
-                    val own = week.days[column].take(cell.shown)
-                    val left = column * columnWidth + side
-                    var y = rowTop + top + cell.base * (oneLine + gap)
-                    // The lines left once every tile has one (SPEC §6.1): first for the times, then for the titles
-                    val spare = if (cell.more == 0 && own.isNotEmpty()) ((room - cell.base * (oneLine + gap) - (own.size * oneLine + (own.size - 1) * gap)) / line).toInt() else 0
-                    val wrapped = if (spare > 0) own.map { painter.title(it, titleWidth, wrap = true) } else emptyList()
-                    val lines = if (spare > 0) Month.lines(spare, own.map { !it.allDay }, wrapped.map { it.lineCount }) else own.map { TileLines(false, 1) }
-                    own.forEachIndexed { tile, occurrence ->
-                        val height = TILE_PADDING_VERTICAL.toPx() * 2 + lines[tile].count * line
-                        // A title on one line is clipped where the tile ends, not broken at a syllable
-                        val title = if (lines[tile].title > 1) wrapped[tile] else painter.title(occurrence, titleWidth, wrap = false)
-                        ops += painter.tile(occurrence, left, y, tileWidth, height, lines[tile], title)
-                        y += height + gap
-                    }
-                    if (cell.more > 0) {
-                        val more = measurer.measure(moreText.format(cell.more), timeStyle.copy(fontWeight = FontWeight.Medium), maxLines = 1)
-                        val moreTop = rowTop + top + (slots - 1) * (oneLine + gap) + TILE_PADDING_VERTICAL.toPx()
-                        ops += { drawText(more, scheme.onSurfaceVariant, Offset(left + TILE_PADDING_HORIZONTAL.toPx(), moreTop)) }
-                    }
-                }
-                rows += ops
             }
-            rows
+            val fill = Month.fill(week, slots)
+            for (bar in fill.bars) {
+                val left = bar.firstColumn * columnWidth + if (bar.startsBefore) 0f else side
+                val right = (bar.lastColumn + 1) * columnWidth - if (bar.endsAfter) 0f else side
+                val title = painter.title(bar.occurrence, (right - left - TILE_PADDING_HORIZONTAL.toPx() * 2).toInt().coerceAtLeast(1), wrap = false)
+                ops += painter.tile(bar.occurrence, left, top + bar.lane * (oneLine + gap), right - left, oneLine, TileLines(false, 1), title, bar.startsBefore, bar.endsAfter)
+            }
+            for (column in 0 until 7) {
+                val cell = fill.cells[column]
+                val own = week.days[column].take(cell.shown)
+                val left = column * columnWidth + side
+                var y = top + cell.base * (oneLine + gap)
+                // The lines left once every tile has one (SPEC §6.1): first for the times, then for the titles
+                val spare = if (cell.more == 0 && own.isNotEmpty()) ((room - cell.base * (oneLine + gap) - (own.size * oneLine + (own.size - 1) * gap)) / line).toInt() else 0
+                val wrapped = if (spare > 0) own.map { painter.title(it, titleWidth, wrap = true) } else emptyList()
+                val lines = if (spare > 0) Month.lines(spare, own.map { !it.allDay }, wrapped.map { it.lineCount }) else own.map { TileLines(false, 1) }
+                own.forEachIndexed { tile, occurrence ->
+                    val height = TILE_PADDING_VERTICAL.toPx() * 2 + lines[tile].count * line
+                    // A title on one line is clipped where the tile ends, not broken at a syllable
+                    val title = if (lines[tile].title > 1) wrapped[tile] else painter.title(occurrence, titleWidth, wrap = false)
+                    ops += painter.tile(occurrence, left, y, tileWidth, height, lines[tile], title)
+                    y += height + gap
+                }
+                if (cell.more > 0) {
+                    val more = measurer.measure(moreText.format(cell.more), timeStyle.copy(fontWeight = FontWeight.Medium), maxLines = 1)
+                    val moreTop = top + (slots - 1) * (oneLine + gap) + TILE_PADDING_VERTICAL.toPx()
+                    ops += { drawText(more, scheme.onSurfaceVariant, Offset(left + TILE_PADDING_HORIZONTAL.toPx(), moreTop)) }
+                }
+            }
+            ops
         }
     }
-    Spacer(
-        modifier.fillMaxSize().drawBehind {
-            val rowHeight = size.height / Month.WEEKS
-            rows.forEachIndexed { index, ops ->
-                translate(top = index * rowHeight) {
-                    clipRect(0f, 0f, size.width, rowHeight) { for (op in ops) op() }
-                }
-            }
-        },
-    )
+    Spacer(modifier.fillMaxSize().drawBehind { clipRect(0f, 0f, size.width, size.height) { for (op in ops) op() } })
 }
 
 /**
- * The compact grid (SPEC §6.3): the day's number – today and the chosen day in circles –, a dot
+ * A week of the compact grid (SPEC §6.3): the day's number – today and the chosen day in circles –, a dot
  * per calendar under it, and a thin bar for an event of several days.
  */
 @Composable
-private fun CompactMonth(grid: MonthGrid, number: Int, focus: Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, modifier: Modifier = Modifier) {
+private fun CompactWeek(week: MonthWeek, shownMonth: () -> Int, focus: Int, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer(cacheSize = 64)
     val scheme = MaterialTheme.colorScheme
     val numberStyle = MaterialTheme.typography.bodyMedium
@@ -332,7 +436,7 @@ private fun CompactMonth(grid: MonthGrid, number: Int, focus: Int, state: Calend
     Spacer(
         modifier.fillMaxSize().drawWithCache {
             val ops = ArrayList<DrawScope.() -> Unit>()
-            val rowHeight = size.height / Month.WEEKS
+            val number = shownMonth()
             val columnWidth = size.width / 7
             val circle = 14.dp.toPx()
             val dot = 6.dp.toPx()
@@ -340,8 +444,8 @@ private fun CompactMonth(grid: MonthGrid, number: Int, focus: Int, state: Calend
             val plus = measurer.measure("+", plusStyle, maxLines = 1)
             fun colors(occurrence: Occurrence) = palette.getValue(state.calendars[occurrence.calendarId]?.color ?: CalendarColor.GRAPHITE)
 
-            grid.weeks.forEachIndexed { index, week ->
-                val rowTop = index * rowHeight
+            run {
+                val rowTop = 0f
                 for (column in 0 until 7) {
                     val day = week.firstDay + column
                     val date = JulianDay.toDate(day)
@@ -431,16 +535,15 @@ internal fun tileTitleStyle(): TextStyle = MaterialTheme.typography.labelSmall.c
     lineBreak = LineBreak.Paragraph,
 )
 
-/** A page starts up to six days before the month's first day and shows six weeks. */
+/** A month's first week starts up to six days before its first day; six weeks are in sight. */
 private const val MONTH_LEAD = 6
 private const val MONTH_SPAN = Month.WEEKS * 7 - 1
-
-/** Whether the page of the month [number] can be drawn from this, whichever day its weeks start with. */
-private fun LoadedEvents.covers(number: Int): Boolean = JulianDay.of(Month.firstDate(number)).let { covers(it - MONTH_LEAD, it + MONTH_SPAN) }
 
 private val TILE_PADDING_VERTICAL = 1.dp
 private val TILE_PADDING_HORIZONTAL = 3.dp
 private val COMPACT_ROW = 48.dp
+/** The speed from which a release counts as a swipe to the next month, as a pager's. */
+private val SWIPE_SPEED = 400.dp
 
 /**
  * Draws the shared event tile (SPEC §5): radius 4 dp, the start time on a line of its own when it

@@ -275,6 +275,53 @@
     </plurals>
     <string name="button_add">Dodaj</string>
 
+    <!-- Reminder notifications -->
+    <string name="channel_reminders">Przypomnienia o wydarzeniach</string>
+    <string name="channel_reminders_description">Powiadomienia wyświetlane o porze ustawionej w wydarzeniu.</string>
+    <string name="notification_time_and_place">%1$s, %2$s</string>
+    <string name="notification_day_and_time">%1$s, %2$s</string>
+    <string name="notification_action_snooze">Odłóż</string>
+    <string name="notification_action_directions">Trasa</string>
+    <string name="notification_group_summary">Przypomnienia: %d</string>
+    <string name="notification_summary_line">%1$s %2$s</string>
+
+    <!-- First run: reminders -->
+    <string name="title_wizard_reminders">Przypomnienia</string>
+    <string name="msg_wizard_reminders_1">Aplikacja przypomina o wydarzeniach powiadomieniem. Bez zgody na powiadomienia przypomnienia się nie pojawią.</string>
+    <string name="msg_wizard_reminders_2">Dźwięk i wibracje można zmienić w ustawieniach systemu.</string>
+    <string name="button_turn_on_notifications">Włącz powiadomienia</string>
+    <string name="button_not_now">Nie teraz</string>
+
+    <!-- Settings › Reminders -->
+    <string name="label_settings_reminders">Przypomnienia</string>
+    <string name="desc_settings_reminders">Odkładanie, dźwięk</string>
+    <string name="title_problem_notifications">Przypomnienia się nie pojawią</string>
+    <string name="msg_problem_notifications_off">Powiadomienia aplikacji są wyłączone, więc przypomnienia się nie pojawią.</string>
+    <string name="title_problem_reminders">Przypomnienia mogą się spóźniać</string>
+    <string name="msg_problem_background">System ogranicza działanie aplikacji w tle.</string>
+    <string name="button_remove_restriction">Wyłącz ograniczenie</string>
+    <string name="label_check_notifications">Powiadomienia</string>
+    <string name="label_check_on">Włączone</string>
+    <string name="label_check_off">Wyłączone</string>
+    <string name="label_check_background">Działanie w tle</string>
+    <string name="label_check_unrestricted">Bez ograniczeń</string>
+    <string name="label_check_restricted">Ograniczone</string>
+    <string name="label_snooze">Odkładanie</string>
+    <string name="label_sound_vibration">Dźwięk i wibracje</string>
+    <string name="label_system_settings">Ustawienia systemu</string>
+    <plurals name="label_minutes">
+        <item quantity="one">%d minuta</item>
+        <item quantity="few">%d minuty</item>
+        <item quantity="many">%d minut</item>
+        <item quantity="other">%d minuty</item>
+    </plurals>
+    <plurals name="label_hours">
+        <item quantity="one">%d godzina</item>
+        <item quantity="few">%d godziny</item>
+        <item quantity="many">%d godzin</item>
+        <item quantity="other">%d godziny</item>
+    </plurals>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Dostęp do kalendarzy</string>
     <string name="msg_wizard_access_1">Aplikacja pokazuje i zmienia wydarzenia zapisane w telefonie. Bez dostępu nie może wyświetlić żadnego z nich.</string>

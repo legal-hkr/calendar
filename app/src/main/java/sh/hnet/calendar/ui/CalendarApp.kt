@@ -58,14 +58,18 @@ import sh.hnet.calendar.ui.settings.LicensesScreen
 import sh.hnet.calendar.ui.settings.ResetScreen
 import sh.hnet.calendar.ui.settings.SettingsRootScreen
 import sh.hnet.calendar.ui.settings.WhatsNewScreen
+import sh.hnet.calendar.reminders.ReminderNotifications
+import sh.hnet.calendar.ui.components.NotificationAccess
+import sh.hnet.calendar.ui.settings.RemindersSettingsScreen
 import sh.hnet.calendar.ui.welcome.AccessScreen
+import sh.hnet.calendar.ui.welcome.RemindersScreen
 
 /**
  * The app's shell: one back stack with the calendar at its root; Settings and everything else
  * open over it as pages, with Back. On the first start the page asking for calendar access lies over it all.
  */
 @Composable
-fun CalendarApp() {
+fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
     val context = LocalContext.current
     val stack = rememberNavBackStack(Screen.Calendar)
     val snackbars = remember { SnackbarHostState() }
@@ -85,12 +89,22 @@ fun CalendarApp() {
     }
 
     val app = appContext as CalendarApplication
+    // A tapped reminder: its event's page over the calendar, whatever was open
+    LaunchedEffect(asked) {
+        if (asked != null) {
+            while (stack.size > 1) stack.removeAt(stack.lastIndex)
+            stack.add(asked)
+            onOpened()
+        }
+    }
     val messages = rememberCoroutineScope()
     val deleted = stringResource(R.string.msg_event_deleted)
     val undo = stringResource(R.string.button_undo)
     val saved = stringResource(R.string.msg_event_saved)
     var error by remember { mutableStateOf<ErrorDetails?>(null) }
     var welcome by rememberSaveable { mutableStateOf(!CalendarAccess.welcomeSeen(appContext) && !app.calendars.hasAccess()) }
+    // The second first-run page (SPEC §15.1): once, also for who started before the app reminded of anything, unless notifications are on already
+    var askReminders by rememberSaveable { mutableStateOf(!NotificationAccess.pageSeen(appContext) && !ReminderNotifications.manager(appContext).areNotificationsEnabled()) }
 
     val motion = MaterialTheme.motionScheme
     val spatial: FiniteAnimationSpec<IntOffset> = motion.defaultSpatialSpec()
@@ -174,12 +188,14 @@ fun CalendarApp() {
                         SettingsRootScreen(
                             onBack = back,
                             onOpenCalendars = { open(Screen.Calendars) },
+                            onOpenReminders = { open(Screen.SettingsReminders) },
                             onOpenLanguage = { open(Screen.SettingsLanguage) },
                             onOpenReset = { open(Screen.SettingsReset) },
                             onOpenAbout = { open(Screen.SettingsAbout) },
                         )
                     }
                     entry<Screen.Calendars> { CalendarsScreen(onBack = back) }
+                    entry<Screen.SettingsReminders> { RemindersSettingsScreen(onBack = back) }
                     entry<Screen.SettingsLanguage> { LanguageScreen(onBack = back) }
                     entry<Screen.SettingsReset> { ResetScreen(onBack = back) }
                     entry<Screen.SettingsAbout> {
@@ -200,6 +216,13 @@ fun CalendarApp() {
                 AccessScreen(onAnswer = {
                     CalendarAccess.markWelcomeSeen(appContext)
                     welcome = false
+                    // With access the reminders have something to read
+                    app.reminders.request()
+                })
+            } else if (askReminders) {
+                RemindersScreen(onAnswer = {
+                    NotificationAccess.markPageSeen(appContext)
+                    askReminders = false
                 })
             }
             error?.let { ErrorDetailsDialog(it, onDismiss = { error = null }) }

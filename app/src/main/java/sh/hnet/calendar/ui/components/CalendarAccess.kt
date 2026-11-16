@@ -53,3 +53,31 @@ fun rememberCalendarAccessAsk(onAnswer: () -> Unit): () -> Unit {
         launcher.launch(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR))
     }
 }
+
+/** The question about notifications, which reminders need (SPEC §15.1): asked on the second first-run page, and again from Settings › Reminders. */
+object NotificationAccess {
+    private const val PAGE_SEEN = "reminders_page_seen"
+    private const val REQUESTED = "notifications_requested"
+
+    /** Whether the first-run page about reminders was answered. */
+    fun pageSeen(context: Context): Boolean = context.firstRun().getBoolean(PAGE_SEEN, false)
+
+    fun markPageSeen(context: Context) = context.firstRun().edit { putBoolean(PAGE_SEEN, true) }
+
+    /** As [CalendarAccess.mayAsk]: whether the system would still show its dialog. */
+    fun mayAsk(context: Context, activity: Activity?): Boolean =
+        !context.firstRun().getBoolean(REQUESTED, false) || activity?.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) == true
+
+    internal fun markRequested(context: Context) = context.firstRun().edit { putBoolean(REQUESTED, true) }
+}
+
+/** Asks for the notification permission with the system's dialog. [onAnswer] runs after the user answered, whatever the answer. */
+@Composable
+fun rememberNotificationAsk(onAnswer: () -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { onAnswer() }
+    return {
+        NotificationAccess.markRequested(context)
+        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+}

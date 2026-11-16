@@ -246,6 +246,49 @@
     </plurals>
     <string name="button_add">Add</string>
 
+    <!-- Reminder notifications -->
+    <string name="channel_reminders">Event reminders</string>
+    <string name="channel_reminders_description">Notifications at the times set in events.</string>
+    <string name="notification_time_and_place">%1$s, %2$s</string>
+    <string name="notification_day_and_time">%1$s, %2$s</string>
+    <string name="notification_action_snooze">Snooze</string>
+    <string name="notification_action_directions">Directions</string>
+    <string name="notification_group_summary">Reminders: %d</string>
+    <string name="notification_summary_line">%1$s %2$s</string>
+
+    <!-- First run: reminders -->
+    <string name="title_wizard_reminders">Reminders</string>
+    <string name="msg_wizard_reminders_1">Calendar reminds you of events with a notification. Without notification permission, reminders won’t appear.</string>
+    <string name="msg_wizard_reminders_2">Sound and vibration are set in the system settings.</string>
+    <string name="button_turn_on_notifications">Turn on notifications</string>
+    <string name="button_not_now">Not now</string>
+
+    <!-- Settings › Reminders -->
+    <string name="label_settings_reminders">Reminders</string>
+    <string name="desc_settings_reminders">Snooze, sound</string>
+    <string name="title_problem_notifications">Reminders won’t appear</string>
+    <string name="msg_problem_notifications_off">Notifications for Calendar are off, so reminders won’t appear.</string>
+    <string name="title_problem_reminders">Reminders may be late</string>
+    <string name="msg_problem_background">The system restricts Calendar’s background activity.</string>
+    <string name="button_remove_restriction">Remove restriction</string>
+    <string name="label_check_notifications">Notifications</string>
+    <string name="label_check_on">On</string>
+    <string name="label_check_off">Off</string>
+    <string name="label_check_background">Background activity</string>
+    <string name="label_check_unrestricted">Unrestricted</string>
+    <string name="label_check_restricted">Restricted</string>
+    <string name="label_snooze">Snooze</string>
+    <string name="label_sound_vibration">Sound and vibration</string>
+    <string name="label_system_settings">System settings</string>
+    <plurals name="label_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+    <plurals name="label_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>
     <string name="msg_wizard_access_1">Calendar shows and changes the events saved on this phone. Without access it can’t show any of them.</string>

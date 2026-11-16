@@ -27,6 +27,7 @@ import sh.hnet.calendar.model.EventDetails
 import sh.hnet.calendar.model.EventStatus
 import sh.hnet.calendar.model.Guest
 import sh.hnet.calendar.model.Occurrence
+import sh.hnet.calendar.model.Reminder
 
 /**
  * The system's calendar provider, where the events live (SPEC §1.3). The app reads and writes it
@@ -145,6 +146,46 @@ class CalendarSource(private val context: Context) {
     }
 
     /**
+     * The reminders of the occurrences that are running at [now] or start in the time the longest
+     * reminder reaches ahead, in the calendars with the ids [calendars]; canceled events and
+     * invitations the user declined have none. Reminders by e-mail or text message are another
+     * app's to send.
+     */
+    suspend fun reminders(now: Long, calendars: Set<Long>): List<Reminder> = withContext(Dispatchers.IO) {
+        if (calendars.isEmpty()) return@withContext emptyList()
+        val minutes = HashMap<Long, MutableSet<Int>>()
+        val methods = "${Reminders.METHOD} != ${Reminders.METHOD_EMAIL} AND ${Reminders.METHOD} != ${Reminders.METHOD_SMS}"
+        resolver.query(Reminders.CONTENT_URI, arrayOf(Reminders.EVENT_ID, Reminders.MINUTES), methods, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) minutes.getOrPut(cursor.getLong(0)) { HashSet() } += cursor.getInt(1)
+        }
+        if (minutes.isEmpty()) return@withContext emptyList()
+        // As far ahead as the longest reminder reaches, at most a year; a day back for all-day events, whose midnights are UTC's
+        val reach = minutes.values.maxOf { it.max() }.coerceIn(0, REMINDER_REACH) * 60_000L
+        val uri = Instances.CONTENT_URI.buildUpon().also {
+            ContentUris.appendId(it, now - DAY_MILLIS)
+            ContentUris.appendId(it, now + reach + DAY_MILLIS)
+        }.build()
+        val projection = arrayOf(
+            Instances.EVENT_ID, Instances.CALENDAR_ID, Instances.TITLE, Instances.EVENT_LOCATION, Instances.BEGIN, Instances.END,
+            Instances.ALL_DAY, Instances.STATUS, Instances.SELF_ATTENDEE_STATUS,
+        )
+        val result = mutableListOf<Reminder>()
+        resolver.query(uri, projection, null, null, "${Instances.BEGIN} ASC")?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val eventId = cursor.getLong(0)
+                val own = minutes[eventId] ?: continue
+                if (cursor.getLong(1) !in calendars) continue
+                if (!cursor.isNull(7) && cursor.getInt(7) == Events.STATUS_CANCELED) continue
+                if (cursor.getInt(8) == Attendees.ATTENDEE_STATUS_DECLINED) continue
+                for (value in own) {
+                    result += Reminder(eventId, cursor.getLong(4), cursor.getLong(5), cursor.getInt(6) != 0, value, cursor.getString(2).orEmpty().trim(), cursor.getString(3).orEmpty().trim())
+                }
+            }
+        }
+        result
+    }
+
+    /**
      * The event [eventId] as its page shows it, for the occurrence from [begin] to [end]; null when
      * it is gone (deleted here or by a sync).
      */
@@ -216,5 +257,11 @@ class CalendarSource(private val context: Context) {
             while (cursor.moveToNext()) result += cursor.getInt(0)
         }
         return result.toList()
+    }
+
+    private companion object {
+        const val DAY_MILLIS = 86_400_000L
+        /** No reminder is looked for further ahead than a year, in minutes. */
+        const val REMINDER_REACH = 366 * 24 * 60
     }
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -52,13 +53,24 @@ class Preferences(private val context: Context) {
         context.settings.edit { it[HOUR_HEIGHT] = dp }
     }
 
+    /** How long Snooze puts a reminder off, in minutes (SPEC §16.4). */
+    val snoozeMinutes: Flow<Int> = context.settings.data.map { (it[SNOOZE] ?: SNOOZE_DEFAULT).takeIf { minutes -> minutes in SNOOZE_CHOICES } ?: SNOOZE_DEFAULT }.distinctUntilChanged()
+
+    suspend fun setSnoozeMinutes(minutes: Int) {
+        context.settings.edit { it[SNOOZE] = minutes }
+    }
+
     /** Restore defaults (Settings › Reset): every setting of this store back to its default. */
     suspend fun restoreDefaults() = context.settings.edit { it.clear() }
 
-    private companion object {
-        val VIEW = stringPreferencesKey("view")
-        val EVENT_LIST = booleanPreferencesKey("event_list")
-        val HOUR_HEIGHT = floatPreferencesKey("hour_height")
-        val LAST_CALENDAR = stringPreferencesKey("last_calendar")
+    companion object {
+        const val SNOOZE_DEFAULT = 10
+        val SNOOZE_CHOICES = listOf(5, 10, 15, 30, 60)
+
+        private val SNOOZE = intPreferencesKey("snooze_minutes")
+        private val VIEW = stringPreferencesKey("view")
+        private val EVENT_LIST = booleanPreferencesKey("event_list")
+        private val HOUR_HEIGHT = floatPreferencesKey("hour_height")
+        private val LAST_CALENDAR = stringPreferencesKey("last_calendar")
     }
 }

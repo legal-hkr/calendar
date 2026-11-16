@@ -5,6 +5,13 @@
     <!-- Events live in the system's calendar provider; the app reads and writes it and never talks to a server. No INTERNET. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <!-- Reminders of events are notifications the app posts itself; asked for in the first-run pages. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- A reminder appears at its exact time, also with the phone asleep. Granted to calendar apps at
+         install; nothing the user has to switch on. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- The next reminder is set again after a restart of the phone. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- To name the app an account belongs to on the Calendars page ("DAVx⁵"): the apps that provide accounts -->
     <queries>
@@ -40,6 +47,32 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- The alarm set for the next reminder and the reminder notifications' buttons; reached only by the app's own pending intents. -->
+        <receiver
+            android:name=".reminders.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- After a restart, an update of the app, or a change of the clock, the time zone or the language:
+             the reminders are worked out anew. -->
+        <receiver
+            android:name=".reminders.SystemReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Run by the system when the calendar's content changes while the app is closed (a sync by the
+             account's app), so the reminders follow. Only the system can bind it. -->
+        <service
+            android:name=".reminders.ChangeJob"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <!-- Hands the one event being shared as a file to the app the user picks; nothing else is reachable -->
         <provider

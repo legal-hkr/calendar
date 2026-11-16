@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app's mark for the status bar: the launcher icon's monochrome layer, cut to its drawing -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="352"
+    android:viewportHeight="352">
+    <group android:translateX="-80" android:translateY="-96">
+        <path
+            android:pathData="M96 214H416V340H374A44 44 0 0 0 330 384V426H156A60 60 0 0 1 96 366Z M180.9 285.6V259H227.2V381H197.4V285.6ZM289.3 256.2Q301.9 256.2 310.8 260.5Q319.8 264.8 324.4 272.4Q328.9 279.9 328.9 289.2Q328.9 300.3 323.4 307.2Q317.9 314.2 310.6 316.7V317.3Q320.1 320.5 325.6 327.9Q331.1 335.2 331.1 346.7Q331.1 357.1 326.4 365Q321.6 373 312.5 377.5Q303.4 382 290.8 382Q270.8 382 258.8 372.1Q246.9 362.3 246.2 342.4H274Q274.1 349.7 278.1 354Q282.2 358.3 289.8 358.3Q296.4 358.3 300 354.5Q303.5 350.8 303.5 344.6Q303.5 336.5 298.4 333Q293.4 329.4 282.2 329.4H276.8V306.1H282.2Q290.7 306.1 295.9 303.2Q301.2 300.3 301.2 292.8Q301.2 286.7 297.9 283.4Q294.5 280.1 288.7 280.1Q282.3 280.1 279.2 283.9Q276.1 287.7 275.6 293.4H247.7Q248.4 275.5 259.4 265.9Q270.5 256.2 289.3 256.2Z"
+            android:fillType="evenOdd"
+            android:fillAlpha="1"
+            android:fillColor="#FF000000" />
+        <path
+            android:pathData="M96 214V178A60 60 0 0 1 156 118H356A60 60 0 0 1 416 178V214Z M181 166a15 15 0 1 0 30 0a15 15 0 1 0 -30 0Z M301 166a15 15 0 1 0 30 0a15 15 0 1 0 -30 0Z"
+            android:fillType="evenOdd"
+            android:fillAlpha="0.5"
+            android:fillColor="#FF000000" />
+        <path
+            android:pathData="M330 426L416 340H374A44 44 0 0 0 330 384Z"
+            android:fillType="evenOdd"
+            android:fillAlpha="0.5"
+            android:fillColor="#FF000000" />
+    </group>
+</vector>

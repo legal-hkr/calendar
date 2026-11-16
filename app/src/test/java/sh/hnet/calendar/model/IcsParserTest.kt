@@ -185,7 +185,26 @@ class IcsParserTest {
         assertEquals(listOf(at("2026-11-17T07:00:00Z"), at("2026-11-18T07:00:00Z"), at("2026-11-19T07:00:00Z")), series.exdates)
         // The changed one and the one without its series stand alone; the canceled one is only left out
         assertEquals(listOf("Wczesniej", "Bez serii"), list.filter { it.rrule == null }.map { it.title })
-        assertTrue(list.filter { it.rrule == null }.all { it.uid.isEmpty() && it.originalUid == null })
+        // Each under an id of its own, the same whenever the file is read
+        assertEquals(listOf("leki/" + at("2026-11-18T07:00:00Z"), "sierota/" + at("2026-11-20T07:00:00Z")), list.filter { it.rrule == null }.map { it.uid })
+        assertTrue(list.all { it.originalUid == null })
         assertEquals("leki", series.uid)
+    }
+
+    @Test
+    fun whatAFileChangesIsTold() {
+        val saved = IcsEvent("1@x", "Koncert", "Filharmonia", "Rzad 5", at("2026-11-20T18:30:00Z"), at("2026-11-20T20:45:00Z"), null, false, "Europe/Warsaw", null, reminders = listOf(60))
+        // The same moment written in UTC, other reminders: nothing new
+        assertEquals(emptySet<IcsImport.Field>(), IcsImport.changes(saved.copy(zone = null, reminders = emptyList()), saved))
+        assertEquals(setOf(IcsImport.Field.TIME), IcsImport.changes(saved.copy(start = at("2026-11-20T19:00:00Z")), saved))
+        assertEquals(setOf(IcsImport.Field.TITLE, IcsImport.Field.PLACE), IcsImport.changes(saved.copy(title = "Koncert symfoniczny", location = "Sala kameralna"), saved))
+        assertEquals(setOf(IcsImport.Field.STATE), IcsImport.changes(saved.copy(status = EventStatus.CANCELED), saved))
+        // A series: the same rule in another order is the same; another count, or another occurrence taken out, is not
+        val series = saved.copy(end = null, duration = "PT8100S", rrule = "FREQ=WEEKLY;COUNT=6", exdates = listOf(at("2026-11-27T18:30:00Z")))
+        assertEquals(emptySet<IcsImport.Field>(), IcsImport.changes(series.copy(rrule = "count=6;FREQ=WEEKLY", duration = "PT2H15M"), series))
+        assertEquals(setOf(IcsImport.Field.REPETITION), IcsImport.changes(series.copy(rrule = "FREQ=WEEKLY;COUNT=8"), series))
+        assertEquals(setOf(IcsImport.Field.REPETITION), IcsImport.changes(series.copy(exdates = emptyList()), series))
+        // A series that stopped repeating, at the same hours
+        assertEquals(setOf(IcsImport.Field.REPETITION), IcsImport.changes(saved, series))
     }
 }

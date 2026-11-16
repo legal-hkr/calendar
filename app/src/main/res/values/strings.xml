@@ -400,6 +400,30 @@
     <string name="error_import_no_calendar">All calendars on this phone are read-only. Create a local calendar to import events.</string>
     <string name="button_choose_another_file">Choose another file</string>
 
+    <!-- Import: events the calendar already has -->
+    <string name="msg_import_exists"><![CDATA[This event is already in the calendar <b>%s</b>. The file has another version of it.]]></string>
+    <string name="msg_import_exists_same"><![CDATA[This event is already in the calendar <b>%s</b>.]]></string>
+    <string name="label_was_value">%1$s (was: %2$s)</string>
+    <string name="label_update_saved_event">Update the saved event</string>
+    <string name="desc_update_saved_event">Reminders stay as they are</string>
+    <string name="label_add_as_copy">Add as a copy</string>
+    <string name="desc_add_as_copy">The calendar will have two events</string>
+    <string name="button_update_event">Update event</string>
+    <string name="msg_import_canceled"><![CDATA[The organizer canceled this event. It is saved in the calendar <b>%s</b>.]]></string>
+    <string name="label_mark_canceled">Mark as canceled</string>
+    <string name="desc_mark_canceled">It stays in the calendar, struck through</string>
+    <string name="label_remove_from_calendar">Remove from the calendar</string>
+    <string name="desc_remove_from_calendar">Can be undone right afterwards</string>
+    <string name="button_remove_event">Remove event</string>
+    <string name="msg_event_updated">Event updated</string>
+    <string name="msg_event_marked_canceled">Event marked as canceled</string>
+    <string name="msg_import_done">Added: %1$d, updated: %2$d</string>
+    <string name="label_import_will_update">Will be updated</string>
+    <string name="label_import_already">Already in the calendar</string>
+    <string name="label_import_will_cancel">Will be marked as canceled</string>
+    <string name="error_import_cancel_unknown_title">Nothing to cancel</string>
+    <string name="error_import_cancel_unknown">The file cancels an event that isn’t in your calendars.</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>
     <string name="msg_wizard_access_1">Calendar shows and changes the events saved on this phone. Without access it can’t show any of them.</string>

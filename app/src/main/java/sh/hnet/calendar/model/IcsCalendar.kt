@@ -188,8 +188,8 @@ object IcsImport {
             if (original == null) continue
             val known = series.containsKey(original)
             if (known && event.originalStart != null) taken.getOrPut(original) { mutableListOf() } += event.originalStart
-            // The id is the series': two events may not share it
-            if (!(known && event.status == EventStatus.CANCELED)) result += event.copy(uid = "", originalUid = null, originalStart = null)
+            // The series' id with the occurrence's start: two events may not share an id, and the same file read again has to give the same one
+            if (!(known && event.status == EventStatus.CANCELED)) result += event.copy(uid = original + "/" + (event.originalStart ?: event.start), originalUid = null, originalStart = null)
         }
         for (event in events) {
             if (event.originalUid != null) continue
@@ -197,4 +197,27 @@ object IcsImport {
         }
         return result.sortedBy { it.start }
     }
+
+    /** What of an event a file can change (SPEC §13.5). */
+    enum class Field { TITLE, TIME, REPETITION, PLACE, DESCRIPTION, STATE }
+
+    /** When the first occurrence ends. */
+    fun firstEnd(event: IcsEvent): Long = event.end ?: (event.start + (event.duration?.let(IcsCalendar::millis) ?: 0L))
+
+    /**
+     * In what the [file]'s version of an event differs from the [saved] one; empty when the file
+     * brings nothing new. Reminders are not compared – an update leaves them –, nor the zone a time
+     * is written in, as long as it is the same moment.
+     */
+    fun changes(file: IcsEvent, saved: IcsEvent): Set<Field> = buildSet {
+        if (file.title != saved.title) add(Field.TITLE)
+        if (file.allDay != saved.allDay || file.start != saved.start || firstEnd(file) != firstEnd(saved)) add(Field.TIME)
+        if (rule(file.rrule) != rule(saved.rrule) || (file.rrule != null && file.exdates.toSet() != saved.exdates.toSet())) add(Field.REPETITION)
+        if (file.location != saved.location) add(Field.PLACE)
+        if (file.description != saved.description) add(Field.DESCRIPTION)
+        if (file.status != saved.status || file.busy != saved.busy || file.private != saved.private) add(Field.STATE)
+    }
+
+    /** A rule's parts in one order and one case, so the same rule written differently compares equal. */
+    private fun rule(rrule: String?): Set<String>? = rrule?.removePrefix("RRULE:")?.split(';')?.map { it.trim().uppercase() }?.filter { it.isNotEmpty() }?.toSet()
 }

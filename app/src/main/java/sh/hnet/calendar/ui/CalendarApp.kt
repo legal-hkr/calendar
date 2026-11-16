@@ -63,6 +63,7 @@ import sh.hnet.calendar.ui.settings.LicensesScreen
 import sh.hnet.calendar.ui.settings.ResetScreen
 import sh.hnet.calendar.ui.settings.SettingsRootScreen
 import sh.hnet.calendar.ui.settings.WhatsNewScreen
+import sh.hnet.calendar.data.EventDelete
 import sh.hnet.calendar.reminders.ReminderNotifications
 import sh.hnet.calendar.ui.components.NotificationAccess
 import sh.hnet.calendar.ui.settings.EventsSettingsScreen
@@ -116,6 +117,24 @@ fun CalendarApp(asked: Screen? = null, onOpened: () -> Unit = {}) {
     var showFound by rememberSaveable { mutableStateOf(!CalendarAccess.welcomeSeen(appContext) && !app.calendars.hasAccess()) }
     var askReminders by rememberSaveable { mutableStateOf(!NotificationAccess.pageSeen(appContext) && !ReminderNotifications.manager(appContext).areNotificationsEnabled()) }
 
+    // An event leaves every view at once; the provider hears of it when the snackbar has gone (SPEC §2.5)
+    val deleteWithUndo: (EventDelete) -> Unit = { delete ->
+        app.deletes.delete(delete)
+        messages.launch {
+            snackbars.currentSnackbarData?.dismiss()
+            // Carried out elsewhere meanwhile (the app left the screen, another delete): Undo has nothing left to offer
+            val watch = launch {
+                app.deletes.waiting.first { it != delete }
+                snackbars.currentSnackbarData?.dismiss()
+            }
+            val result = snackbars.showSnackbar(deleted, actionLabel = undo, duration = SnackbarDuration.Short)
+            watch.cancel()
+            if (app.deletes.waiting.value == delete) {
+                if (result == SnackbarResult.ActionPerformed) app.deletes.undo() else app.deletes.commit()
+            }
+        }
+    }
+
     val motion = MaterialTheme.motionScheme
     val spatial: FiniteAnimationSpec<IntOffset> = motion.defaultSpatialSpec()
     val effects: FiniteAnimationSpec<Float> = motion.defaultEffectsSpec()
@@ -154,7 +173,7 @@ fun CalendarApp(asked: Screen? = null, onOpened: () -> Unit = {}) {
                         )
                     }
                     entry<Screen.Import> { import ->
-                        ImportScreen(import, snackbars, messages, onClose = { while (stack.lastOrNull() is Screen.Import) back() }, onOpenEvent = { open(it) })
+                        ImportScreen(import, snackbars, messages, onClose = { while (stack.lastOrNull() is Screen.Import) back() }, onOpenEvent = { open(it) }, onDelete = deleteWithUndo)
                     }
                     entry<Screen.Search> { SearchScreen(onBack = back, onOpenEvent = { open(Screen.Event(it.eventId, it.begin, it.end)) }) }
                     entry<Screen.Event> { event ->
@@ -165,21 +184,7 @@ fun CalendarApp(asked: Screen? = null, onOpened: () -> Unit = {}) {
                             onDuplicate = { open(Screen.Editor(event.eventId, event.begin, event.end, copy = true, session = System.nanoTime())) },
                             onDelete = { delete ->
                                 back()
-                                // Out of every view at once; the provider hears of it when the snackbar has gone (SPEC §2.5)
-                                app.deletes.delete(delete)
-                                messages.launch {
-                                    snackbars.currentSnackbarData?.dismiss()
-                                    // Carried out elsewhere meanwhile (the app left the screen, another delete): Undo has nothing left to offer
-                                    val watch = launch {
-                                        app.deletes.waiting.first { it != delete }
-                                        snackbars.currentSnackbarData?.dismiss()
-                                    }
-                                    val result = snackbars.showSnackbar(deleted, actionLabel = undo, duration = SnackbarDuration.Short)
-                                    watch.cancel()
-                                    if (app.deletes.waiting.value == delete) {
-                                        if (result == SnackbarResult.ActionPerformed) app.deletes.undo() else app.deletes.commit()
-                                    }
-                                }
+                                deleteWithUndo(delete)
                             },
                         )
                     }

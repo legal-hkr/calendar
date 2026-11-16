@@ -71,58 +71,69 @@ class LocalCalendars(private val context: Context) {
 
     /** Everything the calendar holds, as its export writes it (SPEC §12.3). */
     suspend fun events(calendarId: Long): List<IcsEvent> = withContext(Dispatchers.IO) {
-        val reminders = HashMap<Long, MutableList<Int>>()
-        resolver.query(Reminders.CONTENT_URI, arrayOf(Reminders.EVENT_ID, Reminders.MINUTES), null, null, null)?.use { cursor ->
-            while (cursor.moveToNext()) reminders.getOrPut(cursor.getLong(0)) { mutableListOf() } += cursor.getInt(1)
-        }
-        val columns = arrayOf(
-            Events._ID, Events.TITLE, Events.EVENT_LOCATION, Events.DESCRIPTION, Events.DTSTART, Events.DTEND, Events.DURATION, Events.ALL_DAY, Events.EVENT_TIMEZONE,
-            Events.RRULE, Events.EXDATE, Events.STATUS, Events.AVAILABILITY, Events.ACCESS_LEVEL, Events.ORIGINAL_ID, Events.ORIGINAL_INSTANCE_TIME, Events.UID_2445,
-        )
-        class Row(val id: Long, val original: Long?, val event: IcsEvent)
-        val rows = mutableListOf<Row>()
-        resolver.query(Events.CONTENT_URI, columns, "${Events.CALENDAR_ID} = ? AND ${Events.DELETED} = 0", arrayOf(calendarId.toString()), "${Events.DTSTART} ASC")?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(0)
-                rows += Row(
-                    id, if (cursor.isNull(14)) null else cursor.getLong(14),
-                    IcsEvent(
-                        // The same in every export, so that a file read back is known again
-                        uid = cursor.getString(16)?.takeIf { it.isNotBlank() } ?: "event-$id@sh.hnet.calendar",
-                        title = cursor.getString(1).orEmpty().trim(),
-                        location = cursor.getString(2).orEmpty().trim(),
-                        description = cursor.getString(3).orEmpty().trim(),
-                        start = cursor.getLong(4),
-                        end = if (cursor.isNull(5)) null else cursor.getLong(5),
-                        duration = cursor.getString(6)?.takeIf { it.isNotEmpty() },
-                        allDay = cursor.getInt(7) != 0,
-                        zone = cursor.getString(8)?.takeIf { it.isNotEmpty() },
-                        rrule = cursor.getString(9)?.takeIf { it.isNotEmpty() },
-                        exdates = Recurrence.excluded(cursor.getString(10)),
-                        status = if (cursor.isNull(11)) EventStatus.CONFIRMED else when (cursor.getInt(11)) {
-                            Events.STATUS_TENTATIVE -> EventStatus.TENTATIVE
-                            Events.STATUS_CANCELED -> EventStatus.CANCELED
-                            else -> EventStatus.CONFIRMED
-                        },
-                        busy = cursor.getInt(12) != Events.AVAILABILITY_FREE,
-                        private = cursor.getInt(13).let { it == Events.ACCESS_PRIVATE || it == Events.ACCESS_CONFIDENTIAL },
-                        reminders = reminders[id].orEmpty(),
-                        originalStart = if (cursor.isNull(15)) null else cursor.getLong(15),
-                    ),
-                )
-            }
-        }
-        // An occurrence changed on its own is written under its series' id; one whose series is gone stands alone
-        val uids = rows.associate { it.id to it.event.uid }
-        rows.map { row ->
-            val series = row.original?.let { uids[it] }
-            if (series != null) row.event.copy(originalUid = series) else row.event.copy(originalStart = null)
-        }
+        resolver.storedEvents("${Events.CALENDAR_ID} = ? AND ${Events.DELETED} = 0", arrayOf(calendarId.toString())).map { it.event }
     }
 
     private companion object {
         /** The account the app's own local calendars are in; nothing shows it but other calendar apps. */
         const val ACCOUNT = "Local"
         const val OPAQUE = 0xFF000000.toInt()
+    }
+}
+
+/** An event as the provider has it, in the shape files are written from and compared with. */
+class StoredEvent(val id: Long, val calendarId: Long, val event: IcsEvent)
+
+/**
+ * The events matching [selection] as [IcsEvent]s, with their reminders. An occurrence changed on
+ * its own is written under its series' id when the series is among them; one whose series is not
+ * stands alone.
+ */
+internal fun android.content.ContentResolver.storedEvents(selection: String, arguments: Array<String>?): List<StoredEvent> {
+    val reminders = HashMap<Long, MutableList<Int>>()
+    query(Reminders.CONTENT_URI, arrayOf(Reminders.EVENT_ID, Reminders.MINUTES), null, null, null)?.use { cursor ->
+        while (cursor.moveToNext()) reminders.getOrPut(cursor.getLong(0)) { mutableListOf() } += cursor.getInt(1)
+    }
+    val columns = arrayOf(
+        Events._ID, Events.TITLE, Events.EVENT_LOCATION, Events.DESCRIPTION, Events.DTSTART, Events.DTEND, Events.DURATION, Events.ALL_DAY, Events.EVENT_TIMEZONE,
+        Events.RRULE, Events.EXDATE, Events.STATUS, Events.AVAILABILITY, Events.ACCESS_LEVEL, Events.ORIGINAL_ID, Events.ORIGINAL_INSTANCE_TIME, Events.UID_2445, Events.CALENDAR_ID,
+    )
+    class Row(val id: Long, val calendarId: Long, val original: Long?, val event: IcsEvent)
+    val rows = mutableListOf<Row>()
+    query(Events.CONTENT_URI, columns, selection, arguments, "${Events.DTSTART} ASC")?.use { cursor ->
+        while (cursor.moveToNext()) {
+            val id = cursor.getLong(0)
+            rows += Row(
+                id, cursor.getLong(17), if (cursor.isNull(14)) null else cursor.getLong(14),
+                IcsEvent(
+                    // The same in every export, so that a file read back is known again
+                    uid = cursor.getString(16)?.takeIf { it.isNotBlank() } ?: "event-$id@sh.hnet.calendar",
+                    title = cursor.getString(1).orEmpty().trim(),
+                    location = cursor.getString(2).orEmpty().trim(),
+                    description = cursor.getString(3).orEmpty().trim(),
+                    start = cursor.getLong(4),
+                    end = if (cursor.isNull(5)) null else cursor.getLong(5),
+                    duration = cursor.getString(6)?.takeIf { it.isNotEmpty() },
+                    allDay = cursor.getInt(7) != 0,
+                    zone = cursor.getString(8)?.takeIf { it.isNotEmpty() },
+                    rrule = cursor.getString(9)?.takeIf { it.isNotEmpty() },
+                    exdates = Recurrence.excluded(cursor.getString(10)),
+                    status = if (cursor.isNull(11)) EventStatus.CONFIRMED else when (cursor.getInt(11)) {
+                        Events.STATUS_TENTATIVE -> EventStatus.TENTATIVE
+                        Events.STATUS_CANCELED -> EventStatus.CANCELED
+                        else -> EventStatus.CONFIRMED
+                    },
+                    busy = cursor.getInt(12) != Events.AVAILABILITY_FREE,
+                    private = cursor.getInt(13).let { it == Events.ACCESS_PRIVATE || it == Events.ACCESS_CONFIDENTIAL },
+                    reminders = reminders[id].orEmpty(),
+                    originalStart = if (cursor.isNull(15)) null else cursor.getLong(15),
+                ),
+            )
+        }
+    }
+    val uids = rows.associate { it.id to it.event.uid }
+    return rows.map { row ->
+        val series = row.original?.let { uids[it] }
+        StoredEvent(row.id, row.calendarId, if (series != null) row.event.copy(originalUid = series) else row.event.copy(originalStart = null))
     }
 }

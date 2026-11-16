@@ -150,6 +150,62 @@ class EventWriter(private val context: Context) {
         ids
     }
 
+    /**
+     * A file's newer version of the saved event [eventId] (SPEC §13.5): what the event says and
+     * when it is become the file's; its reminders stay as they are. The start and the rule go
+     * together, as every change of a series has to name both.
+     */
+    suspend fun updateFrom(eventId: Long, event: IcsEvent, phone: ZoneId) = withContext(Dispatchers.IO) {
+        val values = ContentValues().apply {
+            put(Events.TITLE, event.title)
+            put(Events.EVENT_LOCATION, event.location)
+            put(Events.DESCRIPTION, event.description)
+            put(Events.DTSTART, event.start)
+            put(Events.ALL_DAY, if (event.allDay) 1 else 0)
+            put(Events.EVENT_TIMEZONE, if (event.allDay) "UTC" else event.zone ?: phone.id)
+            if (event.rrule != null) {
+                put(Events.RRULE, event.rrule)
+                put(Events.DURATION, event.duration ?: if (event.allDay) "P1D" else "PT0S")
+                putNull(Events.DTEND)
+                Recurrence.exdate(event.exdates, event.allDay)?.let { put(Events.EXDATE, it) } ?: putNull(Events.EXDATE)
+            } else {
+                put(Events.DTEND, event.end ?: event.start)
+                putNull(Events.RRULE)
+                putNull(Events.DURATION)
+                putNull(Events.EXDATE)
+            }
+            put(Events.AVAILABILITY, if (event.busy) Events.AVAILABILITY_BUSY else Events.AVAILABILITY_FREE)
+            put(Events.ACCESS_LEVEL, if (event.private) Events.ACCESS_PRIVATE else Events.ACCESS_DEFAULT)
+            put(Events.STATUS, when (event.status) {
+                EventStatus.CANCELED -> Events.STATUS_CANCELED
+                EventStatus.TENTATIVE -> Events.STATUS_TENTATIVE
+                EventStatus.CONFIRMED -> Events.STATUS_CONFIRMED
+            })
+        }
+        resolver.update(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), values, null, null)
+        if (event.status == EventStatus.CANCELED) showAgain(eventId)
+    }
+
+    /** A cancellation from a file (SPEC §13.6): the event stays in its calendar, marked as canceled. */
+    suspend fun markCanceled(eventId: Long) = withContext(Dispatchers.IO) {
+        resolver.update(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), ContentValues().apply { put(Events.STATUS, Events.STATUS_CANCELED) }, null, null)
+        showAgain(eventId)
+    }
+
+    /**
+     * The provider takes an event out of its list of occurrences the moment an update marks it
+     * canceled (CalendarProvider2.handleUpdateEvents), though it lists one that was written
+     * canceled. An update of the times alone, to what they are, puts it back – for an event that
+     * doesn't repeat; a canceled series the provider never lays out, so that one stays out of sight.
+     */
+    private fun showAgain(eventId: Long) {
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+        resolver.query(uri, arrayOf(Events.DTSTART, Events.DTEND, Events.RRULE), null, null, null)?.use { cursor ->
+            if (!cursor.moveToFirst() || cursor.isNull(1) || !cursor.getString(2).isNullOrEmpty()) return
+            resolver.update(uri, ContentValues().apply { put(Events.DTSTART, cursor.getLong(0)); put(Events.DTEND, cursor.getLong(1)) }, null, null)
+        }
+    }
+
     /** Takes a whole import back (SPEC §13.7): the events with [ids] are deleted. */
     suspend fun deleteAll(ids: List<Long>) = withContext(Dispatchers.IO) {
         for (id in ids) resolver.delete(ContentUris.withAppendedId(Events.CONTENT_URI, id), null, null)

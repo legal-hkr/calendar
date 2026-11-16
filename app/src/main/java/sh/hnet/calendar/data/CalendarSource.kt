@@ -163,6 +163,17 @@ class CalendarSource(private val context: Context) {
     }
 
     /**
+     * The saved events that carry one of [uids] – the ids events have in files –, each under its id
+     * (SPEC §13.5): how an import knows an event again. An occurrence changed on its own doesn't
+     * count as its series; of several events with one id the first is taken.
+     */
+    suspend fun byUid(uids: Set<String>): Map<String, StoredEvent> = withContext(Dispatchers.IO) {
+        if (uids.isEmpty()) return@withContext emptyMap()
+        resolver.storedEvents("${Events.DELETED} = 0 AND ${Events.UID_2445} IS NOT NULL AND ${Events.ORIGINAL_ID} IS NULL", null)
+            .filter { it.event.uid in uids }.groupBy { it.event.uid }.mapValues { it.value.first() }
+    }
+
+    /**
      * The reminders of the occurrences that are running at [now] or start in the time the longest
      * reminder reaches ahead, in the calendars with the ids [calendars]; canceled events and
      * invitations the user declined have none. Reminders by e-mail or text message are another

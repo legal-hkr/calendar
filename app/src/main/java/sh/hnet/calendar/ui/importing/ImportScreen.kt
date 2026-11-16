@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
@@ -60,7 +61,9 @@ import sh.hnet.calendar.CalendarApplication
 import sh.hnet.calendar.R
 import sh.hnet.calendar.model.CalendarInfo
 import sh.hnet.calendar.model.EventStatus
-import sh.hnet.calendar.model.IcsCalendar
+import sh.hnet.calendar.data.EventDelete
+import sh.hnet.calendar.model.IcsImport
+import sh.hnet.calendar.model.Scope
 import sh.hnet.calendar.model.IcsEvent
 import sh.hnet.calendar.model.JulianDay
 import sh.hnet.calendar.model.Repetition
@@ -71,6 +74,7 @@ import sh.hnet.calendar.ui.calendars.CalendarsViewModel
 import sh.hnet.calendar.ui.calendars.CreateCalendarDialog
 import sh.hnet.calendar.ui.components.FormPage
 import sh.hnet.calendar.ui.components.RowIcon
+import sh.hnet.calendar.ui.components.SettingsRadioRow
 import sh.hnet.calendar.ui.components.SingleChoiceDialog
 import sh.hnet.calendar.ui.components.boldNamesResource
 import sh.hnet.calendar.ui.components.groupShapes
@@ -88,7 +92,7 @@ private const val DAY = 86_400_000L
 private fun IcsEvent.startDate(zone: ZoneId): LocalDate = Instant.ofEpochMilli(start).atZone(if (allDay) ZoneOffset.UTC else zone).toLocalDate()
 
 /** When the event's first occurrence ends. */
-private fun IcsEvent.firstEnd(): Long = end ?: (start + (duration?.let(IcsCalendar::millis) ?: 0L))
+private fun IcsEvent.firstEnd(): Long = IcsImport.firstEnd(this)
 
 /** "Wednesday, November 18, 14:00–16:00"; an all-day event its day, or its first and last. */
 private fun whenText(context: Context, event: IcsEvent, formats: CalendarFormats, thisYear: Int): String {
@@ -123,6 +127,7 @@ fun ImportScreen(
     messageScope: CoroutineScope,
     onClose: () -> Unit,
     onOpenEvent: (Screen.Event) -> Unit,
+    onDelete: (EventDelete) -> Unit,
     viewModel: ImportViewModel = viewModel(key = "import/${screen.session}"),
     calendars: CalendarsViewModel = viewModel(),
 ) {
@@ -142,33 +147,48 @@ fun ImportScreen(
     var choosing by rememberSaveable { mutableIntStateOf(0) }
     val another = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? -> uri?.let(viewModel::open) }
     val close = stringResource(R.string.button_close)
+    val noTitle = stringResource(R.string.label_no_title)
+    val wasValue = stringResource(R.string.label_was_value)
     val added = stringResource(R.string.msg_event_added)
     val nothing = stringResource(R.string.error_import_nothing_added)
     val addedMany = stringResource(R.string.msg_events_added)
+    val updated = stringResource(R.string.msg_event_updated)
+    val marked = stringResource(R.string.msg_event_marked_canceled)
+    val done = stringResource(R.string.msg_import_done)
     val undo = stringResource(R.string.button_undo)
     BackHandler(onBack = onClose)
 
-    fun add() {
+    fun run() {
         messageScope.launch {
-            val imported = viewModel.add()
+            val imported = viewModel.run()
             if (imported == null) {
                 snackbars.currentSnackbarData?.dismiss()
                 snackbars.showSnackbar(nothing, duration = SnackbarDuration.Short)
                 return@launch
             }
             onClose()
+            // A canceled event the user chose to remove: deleted as any event, with Undo (SPEC §13.6)
+            imported.removed?.let { stored ->
+                onDelete(EventDelete(stored.id, stored.event.start, Scope.ALL))
+                return@launch
+            }
             val first = imported.first
-            if (imported.ids.size == 1 && first != null) {
+            val several = imported.added.size + imported.updated + imported.canceled > 1
+            if (!several) {
                 // One event: its page (SPEC §13.9)
-                onOpenEvent(Screen.Event(imported.ids.first(), first.start, first.firstEnd()))
+                imported.open?.let(onOpenEvent)
                 snackbars.currentSnackbarData?.dismiss()
-                snackbars.showSnackbar(added, duration = SnackbarDuration.Short)
+                snackbars.showSnackbar(if (imported.updated == 1) updated else if (imported.canceled == 1) marked else added, duration = SnackbarDuration.Short)
             } else {
-                // Several: Day on the first one's date, and Undo for the whole import (§13.7)
+                // Several: Day on the first one's date; Undo takes back what was added – when nothing was changed besides (§13.7)
                 first?.let { app.goTo.value = JulianDay.of(it.startDate(ZoneId.systemDefault())) }
                 snackbars.currentSnackbarData?.dismiss()
-                val result = snackbars.showSnackbar(addedMany.format(imported.ids.size), actionLabel = undo, duration = SnackbarDuration.Short)
-                if (result == SnackbarResult.ActionPerformed) runCatching { app.writer.deleteAll(imported.ids) }
+                if (imported.updated + imported.canceled == 0) {
+                    val result = snackbars.showSnackbar(addedMany.format(imported.added.size), actionLabel = undo, duration = SnackbarDuration.Short)
+                    if (result == SnackbarResult.ActionPerformed) runCatching { app.writer.deleteAll(imported.added) }
+                } else {
+                    snackbars.showSnackbar(done.format(imported.added.size, imported.updated + imported.canceled), duration = SnackbarDuration.Short)
+                }
             }
         }
     }
@@ -187,6 +207,7 @@ fun ImportScreen(
                     ImportProblem.UNREADABLE -> R.string.error_import_unreadable_title to R.string.error_import_unreadable
                     ImportProblem.NO_EVENTS -> R.string.error_import_no_events_title to R.string.error_import_no_events
                     ImportProblem.NO_CALENDAR -> R.string.error_import_no_calendar_title to R.string.error_import_no_calendar
+                    ImportProblem.CANCELS_UNKNOWN -> R.string.error_import_cancel_unknown_title to R.string.error_import_cancel_unknown
                 }
                 Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -202,56 +223,113 @@ fun ImportScreen(
         is ImportState.Ready -> {
             val calendar = current.calendars.firstOrNull { it.id == current.calendarId }
             val count = current.events.size
+            val single = current.events.singleOrNull()
+            val known = current.known[0].takeIf { single != null }
+            // Whether the button adds something to the chosen calendar: then the calendar and the reminders are to choose
+            val adds = single == null || current.action == ImportAction.ADD || current.action == ImportAction.COPY
+            val button = when (current.action.takeIf { single != null }) {
+                ImportAction.UPDATE -> R.string.button_update_event
+                ImportAction.MARK_CANCELED -> R.string.label_mark_canceled
+                ImportAction.REMOVE -> R.string.button_remove_event
+                ImportAction.COPY -> R.string.label_add_as_copy
+                else -> R.string.button_add_to_calendar
+            }
             FormPage(
-                stringResource(R.string.title_import), stringResource(R.string.button_add_to_calendar), ::add,
-                onBack = onClose, confirmEnabled = current.selected.isNotEmpty(), busy = current.adding, navigationIcon = R.drawable.ic_close, navigationLabel = close, contentSpacing = 16.dp,
+                stringResource(R.string.title_import), stringResource(button), ::run,
+                onBack = onClose, confirmEnabled = current.selected.isNotEmpty() || single != null, busy = current.adding, navigationIcon = R.drawable.ic_close, navigationLabel = close, contentSpacing = 16.dp,
             ) {
                 Text(
                     boldNamesResource(R.string.label_file_events, current.fileName.ifEmpty { "ICS" }, pluralStringResource(R.plurals.label_events_count, count, count)),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                val single = current.events.singleOrNull()
-                if (single != null) EventCard(single, whenText(context, single, formats, thisYear), repetitionText(single, words, formats.zone))
-                // Where the events go and what reminds of them
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    val rows = if (current.fileHasReminders || single != null) 2 else 1
-                    SegmentedListItem(
-                        onClick = { choosing = 1 },
-                        shapes = groupShapes(0, rows),
-                        colors = settingsRowColors(),
-                        leadingContent = { Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { if (calendar != null) Box(Modifier.size(16.dp).background(calendar.color.fill(), CircleShape)) } },
-                        trailingContent = { Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null) },
-                        supportingContent = { Text(calendar?.let { account(it) }.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    ) {
-                        Text(calendar?.name ?: stringResource(R.string.label_calendar), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    if (rows == 2) {
-                        val usual = single?.let { event -> current.defaults.reminders(event.allDay).joinToString(", ") { words.reminder(it, event.allDay) }.ifEmpty { stringResource(R.string.label_reminders_none) } }
-                        val supporting = when {
-                            current.fromFile -> stringResource(R.string.label_reminders_from_file)
-                            usual != null -> stringResource(R.string.label_reminders_default, usual)
-                            else -> stringResource(R.string.label_reminders_usual)
+                if (single != null) {
+                    if (known != null) {
+                        val name = known.calendar?.name.orEmpty()
+                        when (known.standing) {
+                            Standing.CANCELED -> InfoCard(R.drawable.ic_event_busy, boldNamesResource(R.string.msg_import_canceled, name))
+                            Standing.CHANGED -> InfoCard(R.drawable.ic_info, boldNamesResource(R.string.msg_import_exists, name))
+                            else -> InfoCard(R.drawable.ic_info, boldNamesResource(R.string.msg_import_exists_same, name))
                         }
-                        if (current.fileHasReminders) {
-                            SegmentedListItem(onClick = { choosing = 2 }, shapes = groupShapes(1, rows), colors = settingsRowColors(), leadingContent = { RowIcon(R.drawable.ic_notifications) }, supportingContent = { Text(supporting) }) {
-                                Text(stringResource(R.string.label_reminders))
-                            }
+                    }
+                    // What the file changes shows the saved value after it (SPEC §13.5)
+                    val before = known?.takeIf { it.standing == Standing.CHANGED }?.stored?.event
+                    val changes = known?.changes.orEmpty()
+                    fun was(now: String, field: IcsImport.Field, old: String?): String =
+                        if (before != null && field in changes && !old.isNullOrEmpty() && old != now) wasValue.format(now, old) else now
+                    EventCard(
+                        single.copy(
+                            title = was(single.title.ifEmpty { noTitle }, IcsImport.Field.TITLE, before?.title),
+                            location = was(single.location, IcsImport.Field.PLACE, before?.location),
+                            status = if (known?.standing == Standing.CANCELED) EventStatus.CANCELED else single.status,
+                        ),
+                        was(whenText(context, single, formats, thisYear), IcsImport.Field.TIME, before?.let { whenText(context, it, formats, thisYear) }),
+                        repetitionText(single, words, formats.zone),
+                    )
+                    if (known != null && known.standing != Standing.SAME) {
+                        val choices = if (known.standing == Standing.CANCELED) {
+                            listOf(Triple(ImportAction.MARK_CANCELED, R.string.label_mark_canceled, R.string.desc_mark_canceled), Triple(ImportAction.REMOVE, R.string.label_remove_from_calendar, R.string.desc_remove_from_calendar))
                         } else {
-                            SegmentedListItem(shapes = groupShapes(1, rows), colors = settingsRowColors(), leadingContent = { RowIcon(R.drawable.ic_notifications) }, supportingContent = { Text(supporting) }) {
-                                Text(stringResource(R.string.label_reminders))
+                            listOf(Triple(ImportAction.UPDATE, R.string.label_update_saved_event, R.string.desc_update_saved_event), Triple(ImportAction.COPY, R.string.label_add_as_copy, R.string.desc_add_as_copy))
+                        }
+                        Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            choices.forEachIndexed { index, (action, title, description) ->
+                                SettingsRadioRow(groupShapes(index, choices.size), stringResource(title), current.action == action, { viewModel.change { it.copy(action = action) } }, stringResource(description))
+                            }
+                        }
+                    }
+                }
+                // Where new events go and what reminds of them
+                if (adds) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        val rows = if (current.fileHasReminders || single != null) 2 else 1
+                        SegmentedListItem(
+                            onClick = { choosing = 1 },
+                            shapes = groupShapes(0, rows),
+                            colors = settingsRowColors(),
+                            leadingContent = { Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { if (calendar != null) Box(Modifier.size(16.dp).background(calendar.color.fill(), CircleShape)) } },
+                            trailingContent = { Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null) },
+                            supportingContent = { Text(calendar?.let { account(it) }.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        ) {
+                            Text(calendar?.name ?: stringResource(R.string.label_calendar), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        if (rows == 2) {
+                            val usual = single?.let { event -> current.defaults.reminders(event.allDay).joinToString(", ") { words.reminder(it, event.allDay) }.ifEmpty { stringResource(R.string.label_reminders_none) } }
+                            val supporting = when {
+                                current.fromFile -> stringResource(R.string.label_reminders_from_file)
+                                usual != null -> stringResource(R.string.label_reminders_default, usual)
+                                else -> stringResource(R.string.label_reminders_usual)
+                            }
+                            if (current.fileHasReminders) {
+                                SegmentedListItem(onClick = { choosing = 2 }, shapes = groupShapes(1, rows), colors = settingsRowColors(), leadingContent = { RowIcon(R.drawable.ic_notifications) }, supportingContent = { Text(supporting) }) {
+                                    Text(stringResource(R.string.label_reminders))
+                                }
+                            } else {
+                                SegmentedListItem(shapes = groupShapes(1, rows), colors = settingsRowColors(), leadingContent = { RowIcon(R.drawable.ic_notifications) }, supportingContent = { Text(supporting) }) {
+                                    Text(stringResource(R.string.label_reminders))
+                                }
                             }
                         }
                     }
                 }
                 if (single == null) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        val all = current.selected.size == count
-                        SelectRow(groupShapes(0, count + 1), stringResource(R.string.label_select_all), stringResource(R.string.label_selected_of, current.selected.size, count), all, struck = false) {
-                            viewModel.change { it.copy(selected = if (all) emptySet() else it.events.indices.toSet()) }
+                        val selectable = current.selectable
+                        val all = selectable.isNotEmpty() && current.selected.containsAll(selectable)
+                        SelectRow(groupShapes(0, count + 1), stringResource(R.string.label_select_all), stringResource(R.string.label_selected_of, current.selected.size, count), all, struck = false, enabled = selectable.isNotEmpty()) {
+                            viewModel.change { it.copy(selected = if (all) emptySet() else it.selectable) }
                         }
                         current.events.forEachIndexed { index, event ->
-                            val line = repetitionText(event, words, formats.zone) ?: whenText(context, event, formats, thisYear)
-                            SelectRow(groupShapes(index + 1, count + 1), event.title.ifEmpty { stringResource(R.string.label_no_title) }, line, index in current.selected, struck = event.status == EventStatus.CANCELED) {
+                            // What will happen to an event the calendar has already; a new one says when it is
+                            val line = when (current.standing(index)) {
+                                Standing.CHANGED -> stringResource(R.string.label_import_will_update)
+                                Standing.SAME -> stringResource(R.string.label_import_already)
+                                Standing.CANCELED -> stringResource(R.string.label_import_will_cancel)
+                                Standing.NEW -> repetitionText(event, words, formats.zone) ?: whenText(context, event, formats, thisYear)
+                            }
+                            SelectRow(
+                                groupShapes(index + 1, count + 1), event.title.ifEmpty { noTitle }, line, index in current.selected,
+                                struck = event.status == EventStatus.CANCELED, enabled = index in selectable,
+                            ) {
                                 viewModel.change { it.copy(selected = if (index in it.selected) it.selected - index else it.selected + index) }
                             }
                         }
@@ -299,12 +377,24 @@ private fun EventCard(event: IcsEvent, time: String, repetition: String?) {
     }
 }
 
-/** A row with a checkbox (SPEC §13.4): "All" with the count, or one event with when it is. */
+/** What the calendar already knows of the file's event (SPEC §13.5, §13.6). */
 @Composable
-private fun SelectRow(shapes: ListItemShapes, title: String, supporting: String, checked: Boolean, struck: Boolean, onToggle: () -> Unit) {
+private fun InfoCard(icon: Int, text: AnnotatedString) {
+    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(painterResource(icon), contentDescription = null)
+            Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+/** A row with a checkbox (SPEC §13.4): "All" with the count, or one event with when it is – or what will happen to it. */
+@Composable
+private fun SelectRow(shapes: ListItemShapes, title: String, supporting: String, checked: Boolean, struck: Boolean, enabled: Boolean = true, onToggle: () -> Unit) {
     SegmentedListItem(
         checked = checked,
         onCheckedChange = { onToggle() },
+        enabled = enabled,
         shapes = shapes,
         colors = settingsRowColors(),
         leadingContent = { Checkbox(checked = checked, onCheckedChange = null) },

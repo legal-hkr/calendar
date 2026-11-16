@@ -439,6 +439,30 @@
     <string name="error_import_no_calendar">Wszystkie kalendarze w telefonie są tylko do odczytu. Utwórz kalendarz lokalny, żeby zaimportować wydarzenia.</string>
     <string name="button_choose_another_file">Wybierz inny plik</string>
 
+    <!-- Import: events the calendar already has -->
+    <string name="msg_import_exists"><![CDATA[To wydarzenie jest już w kalendarzu <b>%s</b>. Plik zawiera jego inną wersję.]]></string>
+    <string name="msg_import_exists_same"><![CDATA[To wydarzenie jest już w kalendarzu <b>%s</b>.]]></string>
+    <string name="label_was_value">%1$s (było: %2$s)</string>
+    <string name="label_update_saved_event">Zaktualizuj zapisane wydarzenie</string>
+    <string name="desc_update_saved_event">Przypomnienia pozostają bez zmian</string>
+    <string name="label_add_as_copy">Dodaj jako kopię</string>
+    <string name="desc_add_as_copy">W kalendarzu będą dwa wydarzenia</string>
+    <string name="button_update_event">Zaktualizuj wydarzenie</string>
+    <string name="msg_import_canceled"><![CDATA[Organizator odwołał to wydarzenie. Jest ono zapisane w kalendarzu <b>%s</b>.]]></string>
+    <string name="label_mark_canceled">Oznacz jako odwołane</string>
+    <string name="desc_mark_canceled">Pozostaje w kalendarzu, przekreślone</string>
+    <string name="label_remove_from_calendar">Usuń z kalendarza</string>
+    <string name="desc_remove_from_calendar">Można cofnąć zaraz po usunięciu</string>
+    <string name="button_remove_event">Usuń wydarzenie</string>
+    <string name="msg_event_updated">Zaktualizowano wydarzenie</string>
+    <string name="msg_event_marked_canceled">Oznaczono wydarzenie jako odwołane</string>
+    <string name="msg_import_done">Dodano: %1$d, zaktualizowano: %2$d</string>
+    <string name="label_import_will_update">Zostanie zaktualizowane</string>
+    <string name="label_import_already">Już w kalendarzu</string>
+    <string name="label_import_will_cancel">Zostanie oznaczone jako odwołane</string>
+    <string name="error_import_cancel_unknown_title">Nie ma czego odwołać</string>
+    <string name="error_import_cancel_unknown">Plik odwołuje wydarzenie, którego nie ma w kalendarzach.</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Dostęp do kalendarzy</string>
     <string name="msg_wizard_access_1">Aplikacja pokazuje i zmienia wydarzenia zapisane w telefonie. Bez dostępu nie może wyświetlić żadnego z nich.</string>

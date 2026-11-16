@@ -47,6 +47,7 @@ import sh.hnet.calendar.about.WhatsNew
 import sh.hnet.calendar.ui.calendar.CalendarScreen
 import sh.hnet.calendar.ui.calendar.SearchScreen
 import sh.hnet.calendar.ui.calendars.CalendarsScreen
+import sh.hnet.calendar.ui.calendars.LocalCalendarScreen
 import sh.hnet.calendar.ui.components.CalendarAccess
 import sh.hnet.calendar.ui.components.ErrorDetails
 import sh.hnet.calendar.ui.components.ErrorDetailsDialog
@@ -201,7 +202,8 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
                             onOpenAbout = { open(Screen.SettingsAbout) },
                         )
                     }
-                    entry<Screen.Calendars> { CalendarsScreen(onBack = back) }
+                    entry<Screen.Calendars> { CalendarsScreen(onBack = back, onOpenLocal = { open(Screen.LocalCalendar(it)) }) }
+                    entry<Screen.LocalCalendar> { local -> LocalCalendarScreen(local.id, snackbars, messages, onBack = back, onShowError = { error = it }) }
                     entry<Screen.SettingsView> { ViewSettingsScreen(onBack = back) }
                     entry<Screen.SettingsEvents> { EventsSettingsScreen(onBack = back) }
                     entry<Screen.SettingsReminders> { RemindersSettingsScreen(onBack = back) }

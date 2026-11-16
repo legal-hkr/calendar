@@ -351,6 +351,34 @@
     <string name="label_past">Minione</string>
     <string name="msg_no_events_found">Nie znaleziono wydarzeń</string>
 
+    <!-- Local calendars -->
+    <string name="button_create_calendar">Utwórz kalendarz</string>
+    <string name="msg_local_calendar">Kalendarz lokalny. Istnieje tylko w tym telefonie i nie jest synchronizowany.</string>
+    <string name="label_name">Nazwa</string>
+    <string name="label_color">Kolor</string>
+    <string name="label_show_in_calendar">Pokazuj w aplikacji</string>
+    <string name="label_backup_group">Kopia zapasowa</string>
+    <string name="label_export_ics">Eksportuj do pliku ICS</string>
+    <string name="desc_export_ics">Jedyny sposób na zachowanie kopii wydarzeń z tego kalendarza</string>
+    <string name="msg_calendar_exported">Wyeksportowano kalendarz</string>
+    <string name="error_export_failed">Nie udało się zapisać pliku.</string>
+    <string name="button_delete_calendar">Usuń kalendarz</string>
+    <string name="title_delete_calendar"><![CDATA[Usunąć kalendarz <b>%s</b>?]]></string>
+    <plurals name="msg_delete_calendar">
+        <item quantity="one">Kalendarz i jego %d wydarzenie zostaną usunięte z telefonu. Tej operacji nie można cofnąć. Kopię można wcześniej zapisać przez eksport do pliku ICS.</item>
+        <item quantity="few">Kalendarz i jego %d wydarzenia zostaną usunięte z telefonu. Tej operacji nie można cofnąć. Kopię można wcześniej zapisać przez eksport do pliku ICS.</item>
+        <item quantity="many">Kalendarz i jego %d wydarzeń zostanie usuniętych z telefonu. Tej operacji nie można cofnąć. Kopię można wcześniej zapisać przez eksport do pliku ICS.</item>
+        <item quantity="other">Kalendarz i jego %d wydarzenia zostaną usunięte z telefonu. Tej operacji nie można cofnąć. Kopię można wcześniej zapisać przez eksport do pliku ICS.</item>
+    </plurals>
+    <string name="button_delete">Usuń</string>
+    <string name="msg_calendar_deleted">Usunięto kalendarz</string>
+    <string name="title_create_calendar">Utwórz kalendarz</string>
+    <string name="title_rename_calendar">Zmień nazwę kalendarza</string>
+    <string name="button_create">Utwórz</string>
+    <string name="error_calendar_name_empty">Wpisz nazwę</string>
+    <string name="error_calendar_name_taken">Kalendarz lokalny o tej nazwie już istnieje</string>
+    <string name="msg_no_calendars_note">Kalendarz utworzony tutaj istnieje tylko w tym telefonie. Konta można dodać w aplikacjach, które je synchronizują, na przykład w DAVx⁵.</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Dostęp do kalendarzy</string>
     <string name="msg_wizard_access_1">Aplikacja pokazuje i zmienia wydarzenia zapisane w telefonie. Bez dostępu nie może wyświetlić żadnego z nich.</string>

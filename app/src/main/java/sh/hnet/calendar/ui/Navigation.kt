@@ -19,6 +19,8 @@ sealed interface Screen : NavKey {
     @Serializable data object Search : Screen
     @Serializable data object Settings : Screen
     @Serializable data object Calendars : Screen
+    /** A calendar that lives only on the phone, by its id in the provider. */
+    @Serializable data class LocalCalendar(val id: Long) : Screen
     @Serializable data object SettingsView : Screen
     @Serializable data object SettingsEvents : Screen
     @Serializable data object SettingsReminders : Screen

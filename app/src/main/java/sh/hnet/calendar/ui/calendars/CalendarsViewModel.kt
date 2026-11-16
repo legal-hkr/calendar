@@ -70,4 +70,26 @@ class CalendarsViewModel(application: Application) : AndroidViewModel(applicatio
     fun setColor(calendar: CalendarInfo, color: CalendarColor) {
         viewModelScope.launch { choices.setColor(calendar.key, color) }
     }
+
+    /** A new local calendar (SPEC §12.5), shown in the color chosen for it; the provider's change brings it onto the page. */
+    fun create(name: String, color: CalendarColor) {
+        viewModelScope.launch {
+            try {
+                app.localCalendars.create(name, color)?.let { choices.setColor(it, color) }
+            } catch (_: Exception) {
+                // Access gone or the provider refused: the list shows that there is no such calendar
+            }
+        }
+    }
+
+    fun rename(calendar: CalendarInfo, name: String) {
+        viewModelScope.launch { runCatching { app.localCalendars.rename(calendar, name) } }
+    }
+
+    /** Deletes a local calendar with its events (SPEC §12.4), after the user confirmed; [onDeleted] when it is gone. */
+    fun delete(calendar: CalendarInfo, onDeleted: () -> Unit) {
+        viewModelScope.launch {
+            if (runCatching { app.localCalendars.delete(calendar) }.isSuccess) onDeleted()
+        }
+    }
 }

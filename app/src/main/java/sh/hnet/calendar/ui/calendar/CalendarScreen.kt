@@ -36,6 +36,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
+import sh.hnet.calendar.ui.calendars.CalendarsViewModel
+import sh.hnet.calendar.ui.calendars.CreateCalendarDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -108,10 +110,27 @@ fun CalendarScreen(onOpenEvent: (Occurrence) -> Unit, onNewEvent: (day: Int, min
         when (state) {
             CalendarState.NoAccess -> NoAccess(onAnswer = viewModel::refreshAccess)
             // The app's mark is drawn on the launcher icon's canvas, hence the larger size
-            CalendarState.NoCalendars -> EmptyState(R.drawable.ic_launcher_monochrome, stringResource(R.string.msg_no_calendars), iconSize = 108.dp)
+            CalendarState.NoCalendars -> NoCalendars()
             else -> Unit
         }
     }
+}
+
+/**
+ * A phone without any calendar (SPEC §12.6, board 22): the app's mark, the sentence, "Create
+ * calendar" and what such a calendar is. Once one is there the provider's change brings the views up.
+ */
+@Composable
+private fun NoCalendars(calendars: CalendarsViewModel = viewModel()) {
+    var creating by rememberSaveable { mutableStateOf(false) }
+    // The app's mark is drawn on the launcher icon's canvas, hence the larger size
+    EmptyState(R.drawable.ic_launcher_monochrome, stringResource(R.string.msg_no_calendars), iconSize = 108.dp) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Button(onClick = { creating = true }) { Text(stringResource(R.string.button_create_calendar)) }
+            Text(stringResource(R.string.msg_no_calendars_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        }
+    }
+    if (creating) CreateCalendarDialog(emptySet(), onCreate = { name, color -> creating = false; calendars.create(name, color) }, onDismiss = { creating = false })
 }
 
 /** A step back in the views' history: the view and the day it was at. */

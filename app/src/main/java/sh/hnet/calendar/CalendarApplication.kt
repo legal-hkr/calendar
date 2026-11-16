@@ -7,6 +7,7 @@ import sh.hnet.calendar.data.CalendarChoiceStore
 import sh.hnet.calendar.data.CalendarSource
 import sh.hnet.calendar.data.DeleteQueue
 import sh.hnet.calendar.data.EventWriter
+import sh.hnet.calendar.data.LocalCalendars
 import sh.hnet.calendar.reminders.ReminderNotifications
 import sh.hnet.calendar.reminders.ReminderScheduler
 
@@ -24,6 +25,9 @@ class CalendarApplication : Application() {
 
     /** Deletes waiting for their Undo snackbar to go. */
     val deletes: DeleteQueue by lazy { DeleteQueue(appScope, writer) }
+
+    /** Creating, renaming and deleting the calendars that live only on the phone. */
+    val localCalendars: LocalCalendars by lazy { LocalCalendars(this) }
 
     /** The user's color and visibility per calendar. */
     val calendarChoices: CalendarChoiceStore by lazy { CalendarChoiceStore(this) }

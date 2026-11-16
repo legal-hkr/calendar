@@ -318,6 +318,32 @@
     <string name="label_past">Past</string>
     <string name="msg_no_events_found">No events found</string>
 
+    <!-- Local calendars -->
+    <string name="button_create_calendar">Create calendar</string>
+    <string name="msg_local_calendar">Local calendar. It exists only on this phone and isn’t synced.</string>
+    <string name="label_name">Name</string>
+    <string name="label_color">Color</string>
+    <string name="label_show_in_calendar">Show in Calendar</string>
+    <string name="label_backup_group">Backup</string>
+    <string name="label_export_ics">Export to an ICS file</string>
+    <string name="desc_export_ics">The only way to keep a copy of this calendar’s events</string>
+    <string name="msg_calendar_exported">Calendar exported</string>
+    <string name="error_export_failed">Calendar couldn’t write the file.</string>
+    <string name="button_delete_calendar">Delete calendar</string>
+    <string name="title_delete_calendar"><![CDATA[Delete calendar <b>%s</b>?]]></string>
+    <plurals name="msg_delete_calendar">
+        <item quantity="one">The calendar and its %d event will be removed from this phone. This can’t be undone. A copy can be saved first by exporting to an ICS file.</item>
+        <item quantity="other">The calendar and its %d events will be removed from this phone. This can’t be undone. A copy can be saved first by exporting to an ICS file.</item>
+    </plurals>
+    <string name="button_delete">Delete</string>
+    <string name="msg_calendar_deleted">Calendar deleted</string>
+    <string name="title_create_calendar">Create calendar</string>
+    <string name="title_rename_calendar">Rename calendar</string>
+    <string name="button_create">Create</string>
+    <string name="error_calendar_name_empty">Enter a name</string>
+    <string name="error_calendar_name_taken">A local calendar with this name already exists</string>
+    <string name="msg_no_calendars_note">A calendar created here exists only on this phone. Accounts are added in the apps that sync them, for example DAVx⁵.</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>
     <string name="msg_wizard_access_1">Calendar shows and changes the events saved on this phone. Without access it can’t show any of them.</string>

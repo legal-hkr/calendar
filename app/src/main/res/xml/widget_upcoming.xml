@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Upcoming events (SPEC §17.6): four by one cells – it fits under a clock widget –, resizable in width only. -->
+<!-- Upcoming events (SPEC §17.6): four by one cells – it fits under a clock widget –, resizable in width only. At least 80 dp high: two pills of 36 with 4 between and 2 of room for the shadows above and below. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_upcoming_description"
     android:initialLayout="@layout/widget_upcoming_nothing"
     android:minWidth="250dp"
-    android:minHeight="40dp"
+    android:minHeight="80dp"
     android:minResizeWidth="200dp"
-    android:minResizeHeight="40dp"
+    android:minResizeHeight="80dp"
     android:previewLayout="@layout/widget_upcoming_preview"
     android:resizeMode="horizontal"
     android:targetCellWidth="4"

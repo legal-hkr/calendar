@@ -51,7 +51,9 @@ class MainActivity : ComponentActivity() {
     /** What a tap on a widget points at (SPEC §17): an event, the editor, or the calendar on a day – then the root, with the day handed over. */
     private fun widget(intent: Intent?): Screen? {
         if (intent?.action != Intent.ACTION_VIEW) return null
-        return when (val request = WidgetRequest.of(intent.data) ?: return null) {
+        if (intent.data?.scheme != WidgetRequest.SCHEME) return null
+        // An address not understood (an old pending intent after a change of the format) just opens the app
+        return when (val request = WidgetRequest.of(intent.data) ?: return Screen.Calendar) {
             is WidgetRequest.Event -> Screen.Event(request.eventId, request.begin, request.end)
             WidgetRequest.NewEvent -> Screen.Editor(session = System.nanoTime())
             is WidgetRequest.Day -> {

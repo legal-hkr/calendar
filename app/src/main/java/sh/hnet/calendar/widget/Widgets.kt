@@ -1,7 +1,6 @@
 package sh.hnet.calendar.widget
 
 import android.app.AlarmManager
-import android.app.LocaleManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -17,6 +16,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
@@ -42,7 +42,7 @@ import sh.hnet.calendar.model.Occurrence
 import sh.hnet.calendar.model.RowTime
 import sh.hnet.calendar.model.WidgetPlan
 import sh.hnet.calendar.ui.calendar.CalendarFormats
-import sh.hnet.calendar.ui.calendar.weekStart
+import sh.hnet.calendar.ui.calendar.systemWeekStart
 import sh.hnet.calendar.ui.theme.fillRes
 import sh.hnet.calendar.ui.theme.onRes
 
@@ -156,48 +156,54 @@ object Widgets {
         val todayDate = LocalDate.now(zone)
         val today = JulianDay.of(todayDate)
         val nextMidnight = todayDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val words = Words(app, zone)
-        val settings = app.preferences.viewSettings.first()
-        val firstWeekday = settings.weekStart ?: words.systemWeekStart(app)
-        val monthNumber = Month.number(todayDate)
-        val gridStart = Month.gridStart(monthNumber, firstWeekday)
+        // Set however the drawing ends: a failed redraw must not leave the widgets without their next one – at midnight at the latest
+        var change = nextMidnight
+        try {
+            val words = Words(app, zone)
+            val settings = app.preferences.viewSettings.first()
+            val firstWeekday = settings.weekStart ?: systemWeekStart(app, words.locale)
+            val monthNumber = Month.number(todayDate)
+            val gridStart = Month.gridStart(monthNumber, firstWeekday)
 
-        // One reading for all: the month's six weeks and the days the lists look ahead
-        val access = app.calendars.hasAccess()
-        val calendars = if (access) runCatching { CalendarChoices.apply(app.calendars.calendars(), app.calendarChoices.choices.first()) }.getOrDefault(emptyList()) else emptyList()
-        val shown = calendars.filter { it.shown }
-        val colors = shown.associate { it.id to it.color }
-        val occurrences = if (shown.isEmpty()) emptyList() else runCatching {
-            app.calendars.occurrences(minOf(gridStart, today), maxOf(gridStart + Month.WEEKS * 7 - 1, today + WidgetPlan.AHEAD_DAYS), colors.keys)
-        }.getOrDefault(emptyList())
-        // Without access or a calendar to show, every tap opens the app, which tells what is missing (§17.10)
-        val ready = shown.isNotEmpty()
-        val canWrite = calendars.any { it.writable }
+            // One reading for all: the month's six weeks and the days the lists look ahead
+            val access = app.calendars.hasAccess()
+            val calendars = if (access) runCatching { CalendarChoices.apply(app.calendars.calendars(), app.calendarChoices.choices.first()) }.getOrDefault(emptyList()) else emptyList()
+            val shown = calendars.filter { it.shown }
+            val colors = shown.associate { it.id to it.color }
+            val occurrences = if (shown.isEmpty()) emptyList() else runCatching {
+                app.calendars.occurrences(minOf(gridStart, today), maxOf(gridStart + Month.WEEKS * 7 - 1, today + WidgetPlan.AHEAD_DAYS), colors.keys)
+            }.getOrDefault(emptyList())
+            // Without access or a calendar to show, every tap opens the app, which tells what is missing (§17.10)
+            val ready = shown.isNotEmpty()
+            val canWrite = calendars.any { it.writable }
 
-        val drawn = HashMap<Int, RemoteViews>()
-        val soon = WidgetPlan.upcoming(occurrences, now, today, 2)
-        if (agenda.isNotEmpty()) {
-            val days = WidgetPlan.agendaDays(occurrences, now, today)
-            agenda.forEach { id -> drawn[id] = agenda(app, words, WidgetPlan.fit(days, manager.getAppWidgetOptions(id).height() - LIST_PADDING_DP), colors, today, ready, canWrite) }
-        }
-        next.forEach { id -> drawn[id] = next(app, words, soon.firstOrNull(), colors, today, ready) }
-        if (month.isNotEmpty()) {
-            val cells = WidgetPlan.month(occurrences, monthNumber, firstWeekday)
-            val views = month(app, words, cells, colors, today, todayDate, firstWeekday, ready)
-            month.forEach { id -> drawn[id] = views }
-        }
-        upcoming.forEach { id -> drawn[id] = upcoming(app, words, soon, colors, today, ready) }
+            val drawn = HashMap<Int, RemoteViews>()
+            val soon = WidgetPlan.upcoming(occurrences, now, today, 2)
+            if (agenda.isNotEmpty()) {
+                val days = WidgetPlan.agendaDays(occurrences, now, today)
+                agenda.forEach { id -> drawn[id] = agenda(app, words, WidgetPlan.fit(days, manager.getAppWidgetOptions(id).height() - LIST_PADDING_DP), colors, today, ready, canWrite) }
+            }
+            next.forEach { id -> drawn[id] = next(app, words, soon.firstOrNull(), colors, today, ready) }
+            if (month.isNotEmpty()) {
+                val cells = WidgetPlan.month(occurrences, monthNumber, firstWeekday)
+                val views = month(app, words, cells, colors, today, todayDate, firstWeekday, ready)
+                month.forEach { id -> drawn[id] = views }
+            }
+            upcoming.forEach { id -> drawn[id] = upcoming(app, words, soon, colors, today, ready) }
 
-        withContext(Dispatchers.Main) {
-            drawn.forEach { (id, views) ->
-                try {
-                    manager.updateAppWidget(id, views)
-                } catch (_: RuntimeException) {
-                    // The system refused these views: the widget keeps what it shows
+            withContext(Dispatchers.Main) {
+                drawn.forEach { (id, views) ->
+                    try {
+                        manager.updateAppWidget(id, views)
+                    } catch (_: RuntimeException) {
+                        // The system refused these views: the widget keeps what it shows
+                    }
                 }
             }
+            change = WidgetPlan.nextChange(occurrences, now, nextMidnight)
+        } finally {
+            scheduleChange(app, change)
         }
-        scheduleChange(app, WidgetPlan.nextChange(occurrences, now, nextMidnight))
     }
 
     /**
@@ -388,14 +394,12 @@ object Widgets {
 
     /** Dates and times in the app's language and the system's clock (SPEC §2.8), as the app's views write them. */
     private class Words(context: Context, zone: ZoneId) {
-        private val locale = context.resources.configuration.locales[0]
+        val locale: Locale = context.resources.configuration.locales[0]
         val formats = CalendarFormats(locale, DateFormat.is24HourFormat(context), zone)
         private fun pattern(skeleton: String) = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale)
         private val shortDay = pattern("EEEMMMd")
         private val weekday = pattern("EEE")
         private val date = pattern("MMMd")
-
-        fun systemWeekStart(context: Context) = context.getSystemService(LocaleManager::class.java).systemLocales.let { weekStart(locale, if (it.isEmpty) locale else it[0]) }
 
         /** "Wed, Nov 18". */
         fun shortDay(day: Int): String = formats.capitalize(shortDay.format(JulianDay.toDate(day)))

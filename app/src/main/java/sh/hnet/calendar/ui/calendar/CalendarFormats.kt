@@ -1,6 +1,7 @@
 package sh.hnet.calendar.ui.calendar
 
 import android.app.LocaleManager
+import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
 import sh.hnet.calendar.CalendarApplication
@@ -76,10 +77,13 @@ fun weekStart(app: Locale, system: Locale): DayOfWeek {
 fun rememberSystemWeekStart(): DayOfWeek {
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
-    return remember(locale) {
-        val system = context.getSystemService(LocaleManager::class.java).systemLocales
-        weekStart(locale, if (system.isEmpty) locale else system[0])
-    }
+    return remember(locale) { systemWeekStart(context, locale) }
+}
+
+/** The day weeks start with by the system and the app's language [locale] alone ("System default" in Settings › View); the widgets use it too. */
+fun systemWeekStart(context: Context, locale: Locale): DayOfWeek {
+    val system = context.getSystemService(LocaleManager::class.java).systemLocales
+    return weekStart(locale, if (system.isEmpty) locale else system[0])
 }
 
 /** The day weeks start with: the one chosen in Settings › View, else the system's. */

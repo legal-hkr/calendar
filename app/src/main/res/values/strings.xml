@@ -119,6 +119,133 @@
     <string name="error_save_failed">The event couldn’t be saved</string>
     <string name="button_show">Show</string>
 
+    <!-- Repetition -->
+    <string name="title_repetition">Repeat</string>
+    <string name="label_repeat_none">Does not repeat</string>
+    <string name="label_repeat_custom">Custom…</string>
+    <string name="label_repeat_other">Repeats by a custom rule</string>
+    <string name="desc_rule_not_editable">This rule can’t be edited here. It stays as it is unless you replace it.</string>
+    <string name="label_every">Every</string>
+    <string name="label_unit">Unit</string>
+    <plurals name="label_unit_days">
+        <item quantity="one">day</item>
+        <item quantity="other">days</item>
+    </plurals>
+    <plurals name="label_unit_weeks">
+        <item quantity="one">week</item>
+        <item quantity="other">weeks</item>
+    </plurals>
+    <plurals name="label_unit_months">
+        <item quantity="one">month</item>
+        <item quantity="other">months</item>
+    </plurals>
+    <plurals name="label_unit_years">
+        <item quantity="one">year</item>
+        <item quantity="other">years</item>
+    </plurals>
+    <string name="label_weekdays">Days of the week</string>
+    <string name="label_on_day_of_month">On day %d</string>
+    <string name="label_on_nth_weekday">On the %1$s %2$s</string>
+    <string name="label_ordinal_first">first</string>
+    <string name="label_ordinal_first_feminine">first</string>
+    <string name="label_ordinal_second">second</string>
+    <string name="label_ordinal_second_feminine">second</string>
+    <string name="label_ordinal_third">third</string>
+    <string name="label_ordinal_third_feminine">third</string>
+    <string name="label_ordinal_fourth">fourth</string>
+    <string name="label_ordinal_fourth_feminine">fourth</string>
+    <string name="label_ordinal_last">last</string>
+    <string name="label_ordinal_last_feminine">last</string>
+    <string name="label_on_monday">Monday</string>
+    <string name="label_on_tuesday">Tuesday</string>
+    <string name="label_on_wednesday">Wednesday</string>
+    <string name="label_on_thursday">Thursday</string>
+    <string name="label_on_friday">Friday</string>
+    <string name="label_on_saturday">Saturday</string>
+    <string name="label_on_sunday">Sunday</string>
+    <string name="label_ends">Ends</string>
+    <string name="label_ends_never">Never</string>
+    <string name="label_ends_on_date">On a date</string>
+    <string name="label_ends_after_count">After a number of occurrences</string>
+    <string name="label_occurrences">Number of occurrences</string>
+    <string name="error_interval_range">Enter a number from 1 to 999</string>
+    <string name="error_pick_weekday">Choose at least one day</string>
+    <string name="rule_daily">Daily</string>
+    <plurals name="rule_every_n_days">
+        <item quantity="one">Every %d day</item>
+        <item quantity="other">Every %d days</item>
+    </plurals>
+    <string name="rule_weekly">Weekly on %s</string>
+    <plurals name="rule_every_n_weeks">
+        <item quantity="one">Every %1$d week on %2$s</item>
+        <item quantity="other">Every %1$d weeks on %2$s</item>
+    </plurals>
+    <string name="rule_monthly_day">Monthly on day %d</string>
+    <plurals name="rule_every_n_months_day">
+        <item quantity="one">Every %1$d month on day %2$d</item>
+        <item quantity="other">Every %1$d months on day %2$d</item>
+    </plurals>
+    <string name="rule_monthly_nth">Monthly on the %1$s %2$s</string>
+    <plurals name="rule_every_n_months_nth">
+        <item quantity="one">Every %1$d month on the %2$s %3$s</item>
+        <item quantity="other">Every %1$d months on the %2$s %3$s</item>
+    </plurals>
+    <string name="rule_yearly">Yearly on %s</string>
+    <plurals name="rule_every_n_years">
+        <item quantity="one">Every %1$d year on %2$s</item>
+        <item quantity="other">Every %1$d years on %2$s</item>
+    </plurals>
+    <string name="rule_list_and">%1$s and %2$s</string>
+    <string name="rule_list_comma">%1$s, %2$s</string>
+    <string name="rule_until">until %s</string>
+    <string name="rule_until_capitalized">Until %s</string>
+    <plurals name="rule_count">
+        <item quantity="one">%d time</item>
+        <item quantity="other">%d times</item>
+    </plurals>
+    <string name="rule_with_end">%1$s, %2$s</string>
+
+    <!-- Reminders in the editor -->
+    <string name="label_reminders">Reminders</string>
+    <string name="button_add_reminder">Add reminder</string>
+    <string name="content_description_remove_reminder">Remove reminder</string>
+    <string name="title_reminder">Reminder</string>
+    <string name="label_reminder_at_start">At the start</string>
+    <plurals name="label_reminder_minutes_before">
+        <item quantity="one">%d minute before</item>
+        <item quantity="other">%d minutes before</item>
+    </plurals>
+    <plurals name="label_reminder_hours_before">
+        <item quantity="one">%d hour before</item>
+        <item quantity="other">%d hours before</item>
+    </plurals>
+    <plurals name="label_reminder_days_before">
+        <item quantity="one">%d day before</item>
+        <item quantity="other">%d days before</item>
+    </plurals>
+    <plurals name="label_reminder_weeks_before">
+        <item quantity="one">%d week before</item>
+        <item quantity="other">%d weeks before</item>
+    </plurals>
+    <string name="label_reminder_on_day_at">On the day at %s</string>
+    <string name="label_reminder_day_before_at">The day before at %s</string>
+    <plurals name="label_reminder_days_before_at">
+        <item quantity="one">%1$d day before at %2$s</item>
+        <item quantity="other">%1$d days before at %2$s</item>
+    </plurals>
+    <string name="label_reminder_week_before_at">1 week before at %s</string>
+    <string name="label_custom">Custom</string>
+    <string name="label_how_long_before">How long before</string>
+    <plurals name="label_unit_minutes">
+        <item quantity="one">minute</item>
+        <item quantity="other">minutes</item>
+    </plurals>
+    <plurals name="label_unit_hours">
+        <item quantity="one">hour</item>
+        <item quantity="other">hours</item>
+    </plurals>
+    <string name="button_add">Add</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>
     <string name="msg_wizard_access_1">Calendar shows and changes the events saved on this phone. Without access it can’t show any of them.</string>

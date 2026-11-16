@@ -114,6 +114,167 @@
     <string name="menu_view_agenda">Harmonogram</string>
     <string name="menu_event_list">Lista wydarzeń</string>
 
+    <!-- Repetition -->
+    <string name="title_repetition">Powtarzanie</string>
+    <string name="label_repeat_none">Nie powtarza się</string>
+    <string name="label_repeat_custom">Niestandardowe…</string>
+    <string name="label_repeat_other">Powtarza się według własnej reguły</string>
+    <string name="desc_rule_not_editable">Tej reguły nie można tutaj edytować. Pozostanie bez zmian, dopóki nie zostanie zastąpiona.</string>
+    <string name="label_every">Co</string>
+    <string name="label_unit">Jednostka</string>
+    <plurals name="label_unit_days">
+        <item quantity="one">dzień</item>
+        <item quantity="few">dni</item>
+        <item quantity="many">dni</item>
+        <item quantity="other">dni</item>
+    </plurals>
+    <plurals name="label_unit_weeks">
+        <item quantity="one">tydzień</item>
+        <item quantity="few">tygodnie</item>
+        <item quantity="many">tygodni</item>
+        <item quantity="other">tygodnie</item>
+    </plurals>
+    <plurals name="label_unit_months">
+        <item quantity="one">miesiąc</item>
+        <item quantity="few">miesiące</item>
+        <item quantity="many">miesięcy</item>
+        <item quantity="other">miesiące</item>
+    </plurals>
+    <plurals name="label_unit_years">
+        <item quantity="one">rok</item>
+        <item quantity="few">lata</item>
+        <item quantity="many">lat</item>
+        <item quantity="other">lata</item>
+    </plurals>
+    <string name="label_weekdays">Dni tygodnia</string>
+    <string name="label_on_day_of_month">%d. dnia miesiąca</string>
+    <string name="label_on_nth_weekday">W %1$s %2$s miesiąca</string>
+    <string name="label_ordinal_first">pierwszy</string>
+    <string name="label_ordinal_first_feminine">pierwszą</string>
+    <string name="label_ordinal_second">drugi</string>
+    <string name="label_ordinal_second_feminine">drugą</string>
+    <string name="label_ordinal_third">trzeci</string>
+    <string name="label_ordinal_third_feminine">trzecią</string>
+    <string name="label_ordinal_fourth">czwarty</string>
+    <string name="label_ordinal_fourth_feminine">czwartą</string>
+    <string name="label_ordinal_last">ostatni</string>
+    <string name="label_ordinal_last_feminine">ostatnią</string>
+    <string name="label_on_monday">poniedziałek</string>
+    <string name="label_on_tuesday">wtorek</string>
+    <string name="label_on_wednesday">środę</string>
+    <string name="label_on_thursday">czwartek</string>
+    <string name="label_on_friday">piątek</string>
+    <string name="label_on_saturday">sobotę</string>
+    <string name="label_on_sunday">niedzielę</string>
+    <string name="label_ends">Zakończenie</string>
+    <string name="label_ends_never">Nigdy</string>
+    <string name="label_ends_on_date">W dniu</string>
+    <string name="label_ends_after_count">Po określonej liczbie wystąpień</string>
+    <string name="label_occurrences">Liczba wystąpień</string>
+    <string name="error_interval_range">Wpisz liczbę od 1 do 999</string>
+    <string name="error_pick_weekday">Wybierz co najmniej jeden dzień</string>
+    <string name="rule_daily">Codziennie</string>
+    <plurals name="rule_every_n_days">
+        <item quantity="one">Co %d dzień</item>
+        <item quantity="few">Co %d dni</item>
+        <item quantity="many">Co %d dni</item>
+        <item quantity="other">Co %d dni</item>
+    </plurals>
+    <string name="rule_weekly">Co tydzień: %s</string>
+    <plurals name="rule_every_n_weeks">
+        <item quantity="one">Co %1$d tydzień: %2$s</item>
+        <item quantity="few">Co %1$d tygodnie: %2$s</item>
+        <item quantity="many">Co %1$d tygodni: %2$s</item>
+        <item quantity="other">Co %1$d tygodnie: %2$s</item>
+    </plurals>
+    <string name="rule_monthly_day">Co miesiąc %d. dnia</string>
+    <plurals name="rule_every_n_months_day">
+        <item quantity="one">Co %1$d miesiąc %2$d. dnia</item>
+        <item quantity="few">Co %1$d miesiące %2$d. dnia</item>
+        <item quantity="many">Co %1$d miesięcy %2$d. dnia</item>
+        <item quantity="other">Co %1$d miesiące %2$d. dnia</item>
+    </plurals>
+    <string name="rule_monthly_nth">Co miesiąc w %1$s %2$s</string>
+    <plurals name="rule_every_n_months_nth">
+        <item quantity="one">Co %1$d miesiąc w %2$s %3$s</item>
+        <item quantity="few">Co %1$d miesiące w %2$s %3$s</item>
+        <item quantity="many">Co %1$d miesięcy w %2$s %3$s</item>
+        <item quantity="other">Co %1$d miesiące w %2$s %3$s</item>
+    </plurals>
+    <string name="rule_yearly">Co roku %s</string>
+    <plurals name="rule_every_n_years">
+        <item quantity="one">Co %1$d rok %2$s</item>
+        <item quantity="few">Co %1$d lata %2$s</item>
+        <item quantity="many">Co %1$d lat %2$s</item>
+        <item quantity="other">Co %1$d lata %2$s</item>
+    </plurals>
+    <string name="rule_list_and">%1$s i %2$s</string>
+    <string name="rule_list_comma">%1$s, %2$s</string>
+    <string name="rule_until">do %s</string>
+    <string name="rule_until_capitalized">Do %s</string>
+    <plurals name="rule_count">
+        <item quantity="one">%d raz</item>
+        <item quantity="few">%d razy</item>
+        <item quantity="many">%d razy</item>
+        <item quantity="other">%d razy</item>
+    </plurals>
+    <string name="rule_with_end">%1$s, %2$s</string>
+
+    <!-- Reminders in the editor -->
+    <string name="label_reminders">Przypomnienia</string>
+    <string name="button_add_reminder">Dodaj przypomnienie</string>
+    <string name="content_description_remove_reminder">Usuń przypomnienie</string>
+    <string name="title_reminder">Przypomnienie</string>
+    <string name="label_reminder_at_start">W chwili rozpoczęcia</string>
+    <plurals name="label_reminder_minutes_before">
+        <item quantity="one">%d minutę wcześniej</item>
+        <item quantity="few">%d minuty wcześniej</item>
+        <item quantity="many">%d minut wcześniej</item>
+        <item quantity="other">%d minuty wcześniej</item>
+    </plurals>
+    <plurals name="label_reminder_hours_before">
+        <item quantity="one">%d godzinę wcześniej</item>
+        <item quantity="few">%d godziny wcześniej</item>
+        <item quantity="many">%d godzin wcześniej</item>
+        <item quantity="other">%d godziny wcześniej</item>
+    </plurals>
+    <plurals name="label_reminder_days_before">
+        <item quantity="one">%d dzień wcześniej</item>
+        <item quantity="few">%d dni wcześniej</item>
+        <item quantity="many">%d dni wcześniej</item>
+        <item quantity="other">%d dni wcześniej</item>
+    </plurals>
+    <plurals name="label_reminder_weeks_before">
+        <item quantity="one">%d tydzień wcześniej</item>
+        <item quantity="few">%d tygodnie wcześniej</item>
+        <item quantity="many">%d tygodni wcześniej</item>
+        <item quantity="other">%d tygodnie wcześniej</item>
+    </plurals>
+    <string name="label_reminder_on_day_at">W dniu wydarzenia o %s</string>
+    <string name="label_reminder_day_before_at">Dzień wcześniej o %s</string>
+    <plurals name="label_reminder_days_before_at">
+        <item quantity="one">%1$d dzień wcześniej o %2$s</item>
+        <item quantity="few">%1$d dni wcześniej o %2$s</item>
+        <item quantity="many">%1$d dni wcześniej o %2$s</item>
+        <item quantity="other">%1$d dni wcześniej o %2$s</item>
+    </plurals>
+    <string name="label_reminder_week_before_at">Tydzień wcześniej o %s</string>
+    <string name="label_custom">Niestandardowe</string>
+    <string name="label_how_long_before">Ile wcześniej</string>
+    <plurals name="label_unit_minutes">
+        <item quantity="one">minuta</item>
+        <item quantity="few">minuty</item>
+        <item quantity="many">minut</item>
+        <item quantity="other">minuty</item>
+    </plurals>
+    <plurals name="label_unit_hours">
+        <item quantity="one">godzina</item>
+        <item quantity="few">godziny</item>
+        <item quantity="many">godzin</item>
+        <item quantity="other">godziny</item>
+    </plurals>
+    <string name="button_add">Dodaj</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Dostęp do kalendarzy</string>
     <string name="msg_wizard_access_1">Aplikacja pokazuje i zmienia wydarzenia zapisane w telefonie. Bez dostępu nie może wyświetlić żadnego z nich.</string>

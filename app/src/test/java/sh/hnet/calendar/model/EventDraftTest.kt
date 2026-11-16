@@ -6,6 +6,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.DayOfWeek
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -71,7 +72,8 @@ class EventDraftTest {
     @Test
     fun turningAllDayOffBringsTheTimesBack() {
         val back = draft.withAllDay(true).withAllDay(false)
-        assertEquals(draft, back)
+        // The times are back; the reminders are the usual ones of a timed event
+        assertEquals(draft.copy(reminders = listOf(15)), back)
         // The hidden end time may lie before the start's: then the event gets an hour
         val odd = draft.copy(allDay = true, start = at(14), end = at(10)).withAllDay(false)
         assertFalse(odd.allDay)
@@ -103,5 +105,44 @@ class EventDraftTest {
         assertEquals(begin, opened.begin)
         assertEquals(end, opened.finish)
         assertEquals(zone.id, opened.zone)
+    }
+
+    @Test
+    fun theRepetitionFollowsTheStart() {
+        val wednesday = LocalDateTime.of(2026, 11, 18, 13, 0)
+        val draft = EventDraft(calendarId = 1, start = wednesday, end = wednesday.plusHours(1), zone = "Europe/Warsaw", repetition = Repetition.Simple(Rule(Frequency.WEEKLY, weekdays = setOf(DayOfWeek.WEDNESDAY))))
+        assertEquals("FREQ=WEEKLY;BYDAY=WE", draft.rrule)
+        val moved = draft.withStartDate(LocalDate.of(2026, 11, 19))
+        assertEquals("FREQ=WEEKLY;BYDAY=TH", moved.rrule)
+        // A change of the time alone leaves it
+        assertEquals(draft.repetition, draft.withStartTime(LocalTime.of(9, 0)).repetition)
+        assertEquals(null, draft.copy(repetition = Repetition.None).rrule)
+        assertEquals("FREQ=HOURLY", draft.copy(repetition = Repetition.Other("FREQ=HOURLY")).withStartDate(LocalDate.of(2026, 11, 19)).rrule)
+    }
+
+    @Test
+    fun aRuleThatLeavesTheStartOutMovesIt() {
+        val wednesday = LocalDateTime.of(2026, 11, 18, 13, 0)
+        val draft = EventDraft(calendarId = 1, start = wednesday, end = wednesday.plusHours(26), zone = "Europe/Warsaw")
+        val fridays = draft.withRepetition(Repetition.Simple(Rule(Frequency.WEEKLY, weekdays = setOf(DayOfWeek.MONDAY, DayOfWeek.FRIDAY))))
+        // The first day the rule names, with the length kept
+        assertEquals(LocalDateTime.of(2026, 11, 20, 13, 0), fridays.start)
+        assertEquals(LocalDateTime.of(2026, 11, 21, 15, 0), fridays.end)
+        assertEquals("FREQ=WEEKLY;BYDAY=MO,FR", fridays.rrule)
+        // Any other rule takes the start as it is
+        assertEquals(wednesday, draft.withRepetition(Repetition.Simple(Rule(Frequency.MONTHLY, nth = 3))).start)
+        assertEquals(wednesday, draft.withRepetition(Repetition.None).start)
+    }
+
+    @Test
+    fun remindersAreThoseOfTheEventsKind() {
+        val start = LocalDateTime.of(2026, 11, 18, 13, 0)
+        val draft = EventDraft.new(1, start.toLocalDate(), start, ZoneId.of("Europe/Warsaw"))
+        assertEquals(listOf(15), draft.reminders)
+        val allDay = draft.copy(reminders = listOf(5, 60)).withAllDay(true)
+        assertEquals(emptyList<Int>(), allDay.reminders)
+        assertEquals(listOf(15), allDay.withAllDay(false).reminders)
+        // Nothing changes when the switch stays where it is
+        assertEquals(listOf(5, 60), draft.copy(reminders = listOf(5, 60)).withAllDay(false).reminders)
     }
 }

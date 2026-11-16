@@ -13,7 +13,7 @@ data class Guest(val name: String, val email: String, val answer: Answer, val or
  * @param timeZone The zone the event was saved in; null when the provider has none
  * @param rule The repetition rule (RRULE) of a repeating event, else null
  * @param exception Whether this is one occurrence of a repeating event that was changed on its own
- * @param reminders Minutes before the start, each once, in rising order
+ * @param reminders Minutes before the start, each once, in rising order; below zero after it, as "on the day at 9:00" of an all-day event
  * @param invited Whether the calendar's owner is among the guests of someone else's event, so there is an answer to give
  */
 data class EventDetails(

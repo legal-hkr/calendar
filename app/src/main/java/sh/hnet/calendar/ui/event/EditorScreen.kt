@@ -94,6 +94,8 @@ import kotlinx.coroutines.launch
 import sh.hnet.calendar.R
 import sh.hnet.calendar.model.CalendarInfo
 import sh.hnet.calendar.model.EventDraft
+import sh.hnet.calendar.model.ReminderTimes
+import sh.hnet.calendar.model.Repetition
 import sh.hnet.calendar.model.Scope
 import sh.hnet.calendar.ui.Screen
 import sh.hnet.calendar.ui.calendar.CalendarFormats
@@ -110,13 +112,12 @@ import sh.hnet.calendar.ui.components.settingsRowColors
 import sh.hnet.calendar.ui.theme.fill
 
 /** What the form shows in place of itself: the description's own page, or the list of time zones. */
-private enum class Part { FORM, DESCRIPTION, ZONE }
+private enum class Part { FORM, DESCRIPTION, ZONE, REPEAT }
 
 /**
  * The editor (SPEC §10, board 09): a full-screen form for a new event, an existing one or a copy.
  * [onSaved] closes it after a save – with `true` when an existing event was changed, whose page
- * then shows what is no longer so. Repetition and reminders get their rows with their stage; until
- * then an edited event keeps the ones it has.
+ * then shows what is no longer so.
  */
 @Composable
 fun EditorScreen(screen: Screen.Editor, snackbars: SnackbarHostState, onClose: () -> Unit, onSaved: (edited: Boolean) -> Unit, onShowError: (ErrorDetails) -> Unit, viewModel: EditorViewModel = viewModel(key = "editor/$screen")) {
@@ -153,6 +154,10 @@ fun EditorScreen(screen: Screen.Editor, snackbars: SnackbarHostState, onClose: (
     when (part) {
         Part.FORM -> Form(ready, saving, onChange = viewModel::change, onClose = leave, onSave = { save() }, onOpen = { part = it })
         Part.DESCRIPTION -> DescriptionPage(ready.draft.description, onDone = { text -> viewModel.change { it.copy(description = text) }; part = Part.FORM }, onClose = { part = Part.FORM })
+        Part.REPEAT -> RepeatPage(
+            (ready.draft.repetition as? Repetition.Simple)?.rule, ready.draft.start.toLocalDate(), rememberEventWords(),
+            onDone = { rule -> viewModel.change { it.withRepetition(Repetition.Simple(rule)) }; part = Part.FORM }, onClose = { part = Part.FORM },
+        )
         Part.ZONE -> ZonePage(ready.draft.zone, onChoose = { zone -> viewModel.change { it.copy(zone = zone) }; part = Part.FORM }, onClose = { part = Part.FORM })
     }
 
@@ -165,7 +170,7 @@ fun EditorScreen(screen: Screen.Editor, snackbars: SnackbarHostState, onClose: (
         )
     }
     when (asking) {
-        SaveResult.AskScope -> ScopeDialog(stringResource(R.string.title_which_events_change), onChoose = { asking = null; save(it, force = true) }, onDismiss = { asking = null })
+        SaveResult.AskScope -> ScopeDialog(stringResource(R.string.title_which_events_change), onChoose = { asking = null; save(it, force = true) }, onDismiss = { asking = null }, scopes = ready.scopes)
         SaveResult.Changed -> AlertDialog(
             onDismissRequest = { asking = null },
             title = { Text(stringResource(R.string.title_event_changed)) },
@@ -193,6 +198,9 @@ private fun Form(ready: EditorState.Ready, saving: Boolean, onChange: ((EventDra
     var more by rememberSaveable { mutableStateOf(draft.zone != phone.id && !draft.allDay) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (ready.event == null) focus.requestFocus() }
+    val words = rememberEventWords()
+    var repeating by rememberSaveable { mutableStateOf(false) }
+    var reminding by rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().imePadding()) {
         TopAppBar(
@@ -216,10 +224,11 @@ private fun Form(ready: EditorState.Ready, saving: Boolean, onChange: ((EventDra
 
             // When
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                SettingsSwitchRow(groupShapes(0, 4), R.drawable.ic_schedule, stringResource(R.string.label_all_day), draft.allDay, { on -> onChange { it.withAllDay(on) } })
-                TimeRow(groupShapes(1, 4), stringResource(R.string.label_start), draft.start.toLocalDate(), if (draft.allDay) null else draft.start.toLocalTime(), today, formats, { date -> onChange { it.withStartDate(date) } }, { time -> onChange { it.withStartTime(time) } })
-                TimeRow(groupShapes(2, 4), stringResource(R.string.label_end), draft.end.toLocalDate(), if (draft.allDay) null else draft.end.toLocalTime(), today, formats, { date -> onChange { it.withEndDate(date) } }, { time -> onChange { it.withEndTime(time) } })
-                Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = groupShapes(3, 4).shape, modifier = Modifier.fillMaxWidth()) {
+                val rows = if (ready.mayRepeat) 5 else 4
+                SettingsSwitchRow(groupShapes(0, rows), R.drawable.ic_schedule, stringResource(R.string.label_all_day), draft.allDay, { on -> onChange { it.withAllDay(on) } })
+                TimeRow(groupShapes(1, rows), stringResource(R.string.label_start), draft.start.toLocalDate(), if (draft.allDay) null else draft.start.toLocalTime(), today, formats, { date -> onChange { it.withStartDate(date) } }, { time -> onChange { it.withStartTime(time) } })
+                TimeRow(groupShapes(2, rows), stringResource(R.string.label_end), draft.end.toLocalDate(), if (draft.allDay) null else draft.end.toLocalTime(), today, formats, { date -> onChange { it.withEndDate(date) } }, { time -> onChange { it.withEndTime(time) } })
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = groupShapes(3, rows).shape, modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.horizontalScroll(rememberScrollState()).padding(start = 72.dp, end = 16.dp, top = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val day = draft.start.toLocalDate()
                         for ((label, date) in listOf(R.string.label_today to today, R.string.label_tomorrow to today.plusDays(1), R.string.label_in_a_week to today.plusDays(7))) {
@@ -227,12 +236,28 @@ private fun Form(ready: EditorState.Ready, saving: Boolean, onChange: ((EventDra
                         }
                     }
                 }
+                if (ready.mayRepeat) {
+                    val (rule, end) = words.repetition(draft.repetition, draft.start.toLocalDate())
+                    // A rule the editor can't show stays as it is unless it is replaced, and says so
+                    val supporting = if (draft.repetition is Repetition.Other) stringResource(R.string.desc_rule_not_editable) else end
+                    SegmentedListItem(
+                        onClick = { repeating = true },
+                        shapes = groupShapes(4, rows),
+                        colors = settingsRowColors(),
+                        leadingContent = { RowIcon(R.drawable.ic_repeat) },
+                        supportingContent = supporting?.let { { Text(it) } },
+                    ) {
+                        Text(rule)
+                    }
+                }
             }
 
-            // Where it is kept, and where it takes place
+            // Where it is kept, where it takes place, and when it reminds
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                CalendarRow(groupShapes(0, 2), ready, onChoose = { calendar -> onChange { it.copy(calendarId = calendar.id) } })
-                SegmentedListItem(shapes = groupShapes(1, 2), colors = settingsRowColors(), leadingContent = { RowIcon(R.drawable.ic_location_on) }) {
+                val full = draft.reminders.size >= ReminderTimes.MAX
+                val rows = 2 + draft.reminders.size + if (full) 0 else 1
+                CalendarRow(groupShapes(0, rows), ready, onChoose = { calendar -> onChange { it.copy(calendarId = calendar.id) } })
+                SegmentedListItem(shapes = groupShapes(1, rows), colors = settingsRowColors(), leadingContent = { RowIcon(R.drawable.ic_location_on) }) {
                     val style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface)
                     BasicTextField(
                         value = draft.location,
@@ -247,6 +272,22 @@ private fun Form(ready: EditorState.Ready, saving: Boolean, onChange: ((EventDra
                             field()
                         },
                     )
+                }
+                draft.reminders.forEachIndexed { index, minutes ->
+                    SegmentedListItem(
+                        shapes = groupShapes(2 + index, rows),
+                        colors = settingsRowColors(),
+                        leadingContent = { RowIcon(R.drawable.ic_notifications) },
+                        trailingContent = { TooltipIconButton(R.drawable.ic_close, stringResource(R.string.content_description_remove_reminder), { onChange { it.copy(reminders = it.reminders - minutes) } }) },
+                    ) {
+                        Text(words.reminder(minutes, draft.allDay), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                // At most five (SPEC §10.6): with five the row is gone
+                if (!full) {
+                    SegmentedListItem(onClick = { reminding = true }, shapes = groupShapes(rows - 1, rows), colors = settingsRowColors(), leadingContent = { Spacer(Modifier.size(40.dp)) }) {
+                        Text(stringResource(R.string.button_add_reminder), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
 
@@ -299,6 +340,18 @@ private fun Form(ready: EditorState.Ready, saving: Boolean, onChange: ((EventDra
                 }
             }
         }
+    }
+
+    if (repeating) {
+        RepetitionDialog(
+            draft.repetition, draft.start.toLocalDate(), words,
+            onChoose = { repetition -> repeating = false; onChange { it.withRepetition(repetition) } },
+            onCustom = { repeating = false; onOpen(Part.REPEAT) },
+            onDismiss = { repeating = false },
+        )
+    }
+    if (reminding) {
+        ReminderDialog(draft.allDay, draft.reminders, words, onAdd = { minutes -> reminding = false; onChange { it.copy(reminders = ReminderTimes.add(it.reminders, minutes)) } }, onDismiss = { reminding = false })
     }
 }
 

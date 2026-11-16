@@ -11,11 +11,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import sh.hnet.calendar.CalendarApplication
+import sh.hnet.calendar.data.EventWriter
 import sh.hnet.calendar.model.CalendarChoices
 import sh.hnet.calendar.model.CalendarInfo
 import sh.hnet.calendar.model.EventDetails
 import sh.hnet.calendar.model.EventDraft
 import sh.hnet.calendar.model.JulianDay
+import sh.hnet.calendar.model.Repetition
 import sh.hnet.calendar.model.Scope
 import sh.hnet.calendar.ui.Screen
 
@@ -37,6 +39,12 @@ sealed interface EditorState {
 
         /** A repeating event whose occurrence was not changed on its own yet: saving asks which occurrences are meant. */
         val asksScope: Boolean get() = editing && event?.repeating == true && event.exception.not()
+
+        /** The answers the question has: a changed repetition is not for one occurrence alone (the owner, 16 Nov 2026). */
+        val scopes: List<Scope> get() = if (EventWriter.repetitionEdited(opened, draft)) listOf(Scope.FOLLOWING, Scope.ALL) else Scope.entries
+
+        /** An occurrence that was changed on its own is one event: it has no repetition to set. */
+        val mayRepeat: Boolean get() = !(editing && event?.exception == true)
 
         /**
          * Whether the event may go to [calendar] (SPEC §10.10, the owner's word on the logic): a new
@@ -108,7 +116,9 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val event = source.event(screen.eventId, screen.begin, screen.end) ?: return EditorState.Gone
         var draft = EventDraft.of(event, zone)
         if (screen.copy) {
-            // A copy may go anywhere; from a read-only calendar it goes to the usual one
+            // A copy is the one occurrence that was opened: it does not repeat (the owner, 16 Nov 2026), but can be made to
+            draft = draft.copy(repetition = Repetition.None)
+            // It may go anywhere; from a read-only calendar it goes to the usual one
             if (calendars.none { it.id == draft.calendarId }) draft = draft.copy(calendarId = usual.id)
         } else {
             if (calendars.none { it.id == draft.calendarId }) return EditorState.Gone
@@ -133,10 +143,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val writer = app.writer
         return try {
             if (event == null || ready.copy || asNew) {
-                // A copy is the one occurrence that was opened, with its reminders; it does not repeat (the owner, 16 Nov 2026).
-                // A new event gets the usual reminder (Settings › Events has it with its stage)
-                val reminders = event?.reminders ?: if (draft.allDay) emptyList() else listOf(DEFAULT_REMINDER)
-                writer.insert(draft, reminders)
+                writer.insert(draft)
                 ready.calendars.firstOrNull { it.id == draft.calendarId }?.let { app.preferences.setLastCalendar(it.key) }
                 return SaveResult.Saved
             }
@@ -154,10 +161,5 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         } catch (failure: Exception) {
             SaveResult.Failed(failure.stackTraceToString())
         }
-    }
-
-    private companion object {
-        /** Minutes before a timed event (SPEC §16.3's default). */
-        const val DEFAULT_REMINDER = 15
     }
 }

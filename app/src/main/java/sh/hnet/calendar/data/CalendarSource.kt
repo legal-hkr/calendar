@@ -213,7 +213,7 @@ class CalendarSource(private val context: Context) {
     private fun reminders(eventId: Long): List<Int> {
         val result = sortedSetOf<Int>()
         resolver.query(Reminders.CONTENT_URI, arrayOf(Reminders.MINUTES), "${Reminders.EVENT_ID} = ?", arrayOf(eventId.toString()), null)?.use { cursor ->
-            while (cursor.moveToNext()) result += cursor.getInt(0).coerceAtLeast(0)
+            while (cursor.moveToNext()) result += cursor.getInt(0)
         }
         return result.toList()
     }

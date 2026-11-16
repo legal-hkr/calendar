@@ -143,10 +143,11 @@ fun <T> SingleChoiceDialog(
 /**
  * Which occurrences of a repeating event a change or a delete is for (SPEC §10.7, board 16): the
  * one question, its three answers as a segmented list, and Cancel. An answer acts at once.
+ * [scopes] leaves out what makes no sense: a changed repetition is not for one occurrence alone.
  */
 @Composable
-fun ScopeDialog(title: String, onChoose: (Scope) -> Unit, onDismiss: () -> Unit) {
-    val answers = listOf(Scope.ONLY_THIS to R.string.label_scope_this, Scope.FOLLOWING to R.string.label_scope_following, Scope.ALL to R.string.label_scope_all)
+fun ScopeDialog(title: String, onChoose: (Scope) -> Unit, onDismiss: () -> Unit, scopes: List<Scope> = Scope.entries) {
+    val answers = listOf(Scope.ONLY_THIS to R.string.label_scope_this, Scope.FOLLOWING to R.string.label_scope_following, Scope.ALL to R.string.label_scope_all).filter { it.first in scopes }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },

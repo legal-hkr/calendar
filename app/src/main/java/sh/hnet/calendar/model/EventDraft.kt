@@ -28,13 +28,18 @@ data class EventDraft(
     val description: String = "",
     val busy: Boolean = true,
     val private: Boolean = false,
+    val repetition: Repetition = Repetition.None,
+    /** Minutes before the start, see [ReminderTimes]. */
+    val reminders: List<Int> = emptyList(),
 ) {
     /** Moving the start keeps the length (SPEC §10.4). */
     fun withStartDate(date: LocalDate): EventDraft = moveStart(LocalDateTime.of(date, start.toLocalTime()))
 
     fun withStartTime(time: LocalTime): EventDraft = moveStart(LocalDateTime.of(start.toLocalDate(), time))
 
-    private fun moveStart(to: LocalDateTime): EventDraft = copy(start = to, end = to.plus(Duration.between(start, end)))
+    /** The repetition follows the day: "weekly on Wednesday" put on a Thursday repeats on Thursdays. */
+    private fun moveStart(to: LocalDateTime): EventDraft =
+        copy(start = to, end = to.plus(Duration.between(start, end)), repetition = repetition.movedTo(start.toLocalDate(), to.toLocalDate()))
 
     /** The end is never before the start (SPEC §10.4): an earlier one becomes the start itself. */
     fun withEndDate(date: LocalDate): EventDraft {
@@ -46,7 +51,31 @@ data class EventDraft(
     fun withEndTime(time: LocalTime): EventDraft = copy(end = maxOf(LocalDateTime.of(end.toLocalDate(), time), start))
 
     /** Turning "All day" off brings the times back; an end that would lie before the start is put an hour after it. */
-    fun withAllDay(on: Boolean): EventDraft = if (on || end >= start) copy(allDay = on) else copy(allDay = false, end = start.plusHours(1))
+    fun withAllDay(on: Boolean): EventDraft {
+        if (on == allDay) return this
+        // Reminders of the one kind make no sense for the other (15 minutes before midnight), so the usual ones of the new kind take their place
+        val changed = copy(allDay = on, reminders = ReminderTimes.defaults(on))
+        return if (on || end >= start) changed else changed.copy(end = start.plusHours(1))
+    }
+
+    /**
+     * The event repeats as [value] says. A weekly rule that leaves out the day the event starts on
+     * moves the start to the first day it names: the start is always an occurrence.
+     */
+    fun withRepetition(value: Repetition): EventDraft {
+        val rule = (value as? Repetition.Simple)?.rule ?: return copy(repetition = value)
+        val day = start.toLocalDate()
+        val first = generateSequence(day) { it.plusDays(1) }.take(7).firstOrNull { rule.names(it, day) } ?: day
+        val days = ChronoUnit.DAYS.between(day, first)
+        return copy(start = start.plusDays(days), end = end.plusDays(days), repetition = value)
+    }
+
+    /** The rule as the provider keeps it; null for an event that doesn't repeat. */
+    val rrule: String? get() = when (val repetition = repetition) {
+        Repetition.None -> null
+        is Repetition.Simple -> repetition.rule.toRRule(start, ZoneId.of(zone), allDay)
+        is Repetition.Other -> repetition.rrule
+    }
 
     /** Start and end as the provider keeps them: an all-day event from midnight UTC of its first day to midnight UTC after its last. */
     val begin: Long get() = if (allDay) start.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() else start.atZone(ZoneId.of(zone)).toInstant().toEpochMilli()
@@ -65,7 +94,7 @@ data class EventDraft(
          */
         fun new(calendarId: Long, day: LocalDate, now: LocalDateTime, zone: ZoneId, time: LocalTime? = null, minutes: Long = 60): EventDraft {
             val start = if (time != null) LocalDateTime.of(day, time) else LocalDateTime.of(day, now.toLocalTime().truncatedTo(ChronoUnit.HOURS)).plusHours(1)
-            return EventDraft(calendarId = calendarId, start = start, end = start.plusMinutes(minutes), zone = zone.id)
+            return EventDraft(calendarId = calendarId, start = start, end = start.plusMinutes(minutes), zone = zone.id, reminders = ReminderTimes.defaults(false))
         }
 
         /** The occurrence [event] as the editor opens it; times in the event's own zone, [phone]'s when it has none. */
@@ -85,7 +114,10 @@ data class EventDraft(
                 end = Instant.ofEpochMilli(maxOf(event.end, event.begin)).atZone(own).toLocalDateTime()
                 zone = own.id
             }
-            return EventDraft(event.calendarId, event.title, event.allDay, start, end, zone, event.location, event.description, event.busy, event.private)
+            return EventDraft(
+                event.calendarId, event.title, event.allDay, start, end, zone, event.location, event.description, event.busy, event.private,
+                Repetition.of(event.rule, start.toLocalDate(), ZoneId.of(zone)), event.reminders,
+            )
         }
 
         /** The time an all-day event gets when "All day" is turned off. */

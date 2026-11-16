@@ -18,6 +18,8 @@ import kotlinx.coroutines.withContext
 import sh.hnet.calendar.model.Answer
 import sh.hnet.calendar.model.EventDraft
 import sh.hnet.calendar.model.Recurrence
+import sh.hnet.calendar.model.Repetition
+import sh.hnet.calendar.model.RuleEnd
 import sh.hnet.calendar.model.Scope
 
 /**
@@ -27,6 +29,16 @@ import sh.hnet.calendar.model.Scope
  */
 class EventWriter(private val context: Context) {
     private val resolver get() = context.contentResolver
+
+    companion object {
+        /**
+         * Whether the user changed how the event repeats – apart from what a move of its start does
+         * to the rule by itself ("weekly on Wednesday" put on a Thursday). A change of the rule is
+         * not for one occurrence alone, so then "Only this event" is not offered.
+         */
+        fun repetitionEdited(original: EventDraft, draft: EventDraft): Boolean =
+            draft.repetition != original.repetition.movedTo(original.start.toLocalDate(), draft.start.toLocalDate())
+    }
 
     /** What a stored event is, as far as writing needs to know. */
     private class Row(
@@ -75,20 +87,27 @@ class EventWriter(private val context: Context) {
     private fun timeChanged(draft: EventDraft, from: EventDraft): Boolean =
         draft.allDay != from.allDay || draft.begin != from.begin || draft.finish != from.finish || draft.storedZone != from.storedZone
 
-    /** A new event in the draft's calendar, with [reminders] (minutes before the start); [rule] makes it repeat. Its id. */
-    suspend fun insert(draft: EventDraft, reminders: List<Int>, rule: String? = null): Long = withContext(Dispatchers.IO) {
+    /** A new event in the draft's calendar, with its reminders and its repetition. Its id. */
+    suspend fun insert(draft: EventDraft): Long = withContext(Dispatchers.IO) {
+        val rule = draft.rrule
         val values = values(draft, null, repeating = rule != null)
         values.put(Events.CALENDAR_ID, draft.calendarId)
         if (rule != null) values.put(Events.RRULE, rule)
         val id = ContentUris.parseId(requireNotNull(resolver.insert(Events.CONTENT_URI, values)) { "The provider refused the event" })
-        for (minutes in reminders) {
+        setReminders(id, draft.reminders, replace = false)
+        id
+    }
+
+    /** The reminders of [eventId] are [minutes] before the start, as alerts. */
+    private fun setReminders(eventId: Long, minutes: List<Int>, replace: Boolean = true) {
+        if (replace) resolver.delete(Reminders.CONTENT_URI, "${Reminders.EVENT_ID} = ?", arrayOf(eventId.toString()))
+        for (value in minutes) {
             resolver.insert(Reminders.CONTENT_URI, ContentValues().apply {
-                put(Reminders.EVENT_ID, id)
-                put(Reminders.MINUTES, minutes)
+                put(Reminders.EVENT_ID, eventId)
+                put(Reminders.MINUTES, value)
                 put(Reminders.METHOD, Reminders.METHOD_ALERT)
             })
         }
-        id
     }
 
     /**
@@ -100,17 +119,24 @@ class EventWriter(private val context: Context) {
     suspend fun update(eventId: Long, instanceBegin: Long, original: EventDraft, draft: EventDraft, scope: Scope): Boolean = withContext(Dispatchers.IO) {
         val row = row(eventId) ?: return@withContext false
         val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+        val reminders = draft.reminders != original.reminders
+        // The copy of an occurrence or a series takes the reminders as they are stored, unless the form changed them
+        fun remind(id: Long) = if (reminders) setReminders(id, draft.reminders, replace = false) else copyReminders(eventId, id)
         when {
             row.rule == null -> {
-                val values = values(draft, original, repeating = false)
+                val rule = draft.rrule
+                // An event that starts to repeat is written whole: its length becomes a duration
+                val values = if (rule != null) values(draft, null, repeating = true).apply { put(Events.RRULE, rule) } else values(draft, original, repeating = false)
                 if (values.size() > 0) resolver.update(uri, values, null, null)
+                if (reminders) setReminders(eventId, draft.reminders)
             }
+            repetitionEdited(original, draft) -> rewrite(eventId, row, instanceBegin, original, draft, scope)
             scope == Scope.ONLY_THIS && !row.synced -> {
                 // See [exclude]: the occurrence becomes an event of its own, then the series leaves it out. In this order a failure leaves too much, never too little
                 val copy = copyOf(eventId)
-                copy.putAll(values(draft, null, repeating = false))
+                copy.putAll(values(draft.copy(repetition = Repetition.None), null, repeating = false))
                 val id = ContentUris.parseId(requireNotNull(resolver.insert(Events.CONTENT_URI, copy)) { "The provider refused the event" })
-                copyReminders(eventId, id)
+                remind(id)
                 copyGuests(eventId, id)
                 exclude(eventId, row, instanceBegin)
             }
@@ -121,7 +147,8 @@ class EventWriter(private val context: Context) {
                 values.remove(Events.DTEND)
                 values.put(Events.ORIGINAL_INSTANCE_TIME, instanceBegin)
                 values.put(Events.STATUS, row.status ?: Events.STATUS_CONFIRMED)
-                resolver.insert(ContentUris.withAppendedId(Events.CONTENT_EXCEPTION_URI, eventId), values)
+                val made = resolver.insert(ContentUris.withAppendedId(Events.CONTENT_EXCEPTION_URI, eventId), values)
+                if (reminders && made != null) setReminders(ContentUris.parseId(made), draft.reminders)
             }
             scope == Scope.FOLLOWING && instanceBegin > row.start -> {
                 // A new series from this occurrence on, then the old one ends before it. In this order a failure leaves too much, never too little
@@ -134,7 +161,7 @@ class EventWriter(private val context: Context) {
                 val gone = Recurrence.excluded(row.exdate).filter { it >= instanceBegin }
                 if (gone.isNotEmpty()) copy.put(Events.EXDATE, Recurrence.exdate(gone.map(mover(row, row.rule, original, draft)), draft.allDay))
                 val id = ContentUris.parseId(requireNotNull(resolver.insert(Events.CONTENT_URI, copy)) { "The provider refused the event" })
-                copyReminders(eventId, id)
+                remind(id)
                 copyGuests(eventId, id)
                 endBefore(eventId, row, instanceBegin)
             }
@@ -154,9 +181,69 @@ class EventWriter(private val context: Context) {
                     if (gone.isNotEmpty()) values.put(Events.EXDATE, Recurrence.exdate(gone.map(moved), draft.allDay))
                 }
                 if (values.size() > 0) resolver.update(uri, values, null, null)
+                if (reminders) setReminders(eventId, draft.reminders)
             }
         }
         true
+    }
+
+    /**
+     * A series whose repetition the user changed (the logic agreed with the owner, 16 Nov 2026).
+     * "This and following" ends the old series before the occurrence and writes what the form
+     * holds from there on. "All" – also when the occurrence is the first – changes the series
+     * itself: a new rule holds from its beginning, the first occurrence being put on the first day
+     * the rule names; "Does not repeat" leaves the one event the form shows.
+     */
+    private fun rewrite(eventId: Long, row: Row, instanceBegin: Long, original: EventDraft, draft: EventDraft, scope: Scope) {
+        val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
+        val reminders = draft.reminders != original.reminders
+        val simple = (draft.repetition as? Repetition.Simple)?.rule
+        val before = (original.repetition as? Repetition.Simple)?.rule
+        if (scope == Scope.FOLLOWING && instanceBegin > row.start) {
+            val copy = copyOf(eventId)
+            copy.putAll(values(draft, null, repeating = simple != null))
+            if (simple != null) {
+                // A count the user left alone goes on counting: the occurrences that stay behind are taken off it
+                val end = simple.end
+                val rule = if (end is RuleEnd.Count && before?.end == end) simple.copy(end = RuleEnd.Count((end.times - occurrencesBefore(eventId, row, instanceBegin)).coerceAtLeast(1))) else simple
+                copy.put(Events.RRULE, rule.toRRule(draft.start, ZoneId.of(draft.zone), draft.allDay))
+            }
+            val id = ContentUris.parseId(requireNotNull(resolver.insert(Events.CONTENT_URI, copy)) { "The provider refused the event" })
+            if (reminders) setReminders(id, draft.reminders, replace = false) else copyReminders(eventId, id)
+            copyGuests(eventId, id)
+            endBefore(eventId, row, instanceBegin)
+            return
+        }
+        val from = original.start.toLocalDate()
+        val to = draft.start.toLocalDate()
+        // Only the end was changed: the occurrences stay where they are, with what was taken out of them
+        val samePattern = simple != null && before?.movedTo(from, to)?.pattern == simple.pattern
+        val values = values(draft, original, repeating = simple != null)
+        values.put(Events.ALL_DAY, if (draft.allDay) 1 else 0)
+        values.put(Events.EVENT_TIMEZONE, draft.storedZone)
+        if (simple == null) {
+            values.put(Events.DTSTART, draft.begin)
+            values.put(Events.DTEND, draft.finish)
+            values.putNull(Events.DURATION)
+            values.putNull(Events.RRULE)
+            values.putNull(Events.EXDATE)
+        } else {
+            val stored = if (row.allDay) ZoneOffset.UTC else zone(row.zone, original.zone)
+            val first = simple.firstFrom(Instant.ofEpochMilli(row.start).atZone(stored).toLocalDate(), to)
+            val start = LocalDateTime.of(first, draft.start.toLocalTime())
+            values.put(Events.DTSTART, (if (draft.allDay) first.atStartOfDay(ZoneOffset.UTC) else start.atZone(ZoneId.of(draft.zone))).toInstant().toEpochMilli())
+            values.put(Events.DURATION, draft.duration)
+            values.putNull(Events.DTEND)
+            values.put(Events.RRULE, simple.toRRule(start, ZoneId.of(draft.zone), draft.allDay))
+            val gone = Recurrence.excluded(row.exdate)
+            if (gone.isNotEmpty()) {
+                if (samePattern) values.put(Events.EXDATE, Recurrence.exdate(gone.map(mover(row, requireNotNull(row.rule), original, draft)), draft.allDay)) else values.putNull(Events.EXDATE)
+            }
+        }
+        resolver.update(uri, values, null, null)
+        // Occurrences changed on their own belonged to the old pattern
+        if (!samePattern) resolver.delete(Events.CONTENT_URI, "${Events.ORIGINAL_ID} = ?", arrayOf(eventId.toString()))
+        if (reminders) setReminders(eventId, draft.reminders)
     }
 
     /**
@@ -306,11 +393,7 @@ class EventWriter(private val context: Context) {
      * without repetition and guests, which loses nothing by it.
      */
     suspend fun move(eventId: Long, draft: EventDraft): Long = withContext(Dispatchers.IO) {
-        val reminders = mutableListOf<Int>()
-        resolver.query(Reminders.CONTENT_URI, arrayOf(Reminders.MINUTES), "${Reminders.EVENT_ID} = ?", arrayOf(eventId.toString()), null)?.use { cursor ->
-            while (cursor.moveToNext()) reminders += cursor.getInt(0)
-        }
-        val id = insert(draft, reminders)
+        val id = insert(draft)
         resolver.delete(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), null, null)
         id
     }

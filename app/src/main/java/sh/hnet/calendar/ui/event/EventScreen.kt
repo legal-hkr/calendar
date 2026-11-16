@@ -86,6 +86,7 @@ import sh.hnet.calendar.data.EventDelete
 import sh.hnet.calendar.model.Answer
 import sh.hnet.calendar.model.CalendarInfo
 import sh.hnet.calendar.model.EventDetails
+import sh.hnet.calendar.model.EventDraft
 import sh.hnet.calendar.model.EventStatus
 import sh.hnet.calendar.model.Guest
 import sh.hnet.calendar.model.Ics
@@ -143,9 +144,12 @@ fun EventScreen(
             }
         }
 
+        val words = rememberEventWords()
         val rows = buildList<@Composable (ListItemShapes) -> Unit> {
             add { TimeRow(it, event, formats) }
+            if (event.repeating) add { RepetitionRow(it, event, words) }
             if (event.location.isNotEmpty()) add { PlaceRow(it, event.location, snackbars) }
+            if (event.reminders.isNotEmpty()) add { DetailRow(it, R.drawable.ic_notifications, stringResource(R.string.label_reminders), event.reminders.joinToString(", ") { minutes -> words.reminder(minutes, event.allDay) }) }
             if (event.guests.isNotEmpty()) add { GuestsRow(it, event) }
             if (!event.busy || event.private || event.status != EventStatus.CONFIRMED) add { StateRow(it, event) }
         }
@@ -331,6 +335,15 @@ private fun DetailRow(shapes: ListItemShapes, icon: Int, headline: String, suppo
 private fun TimeRow(shapes: ListItemShapes, event: EventDetails, formats: CalendarFormats) {
     val (date, lines) = timeText(LocalContext.current, event, formats)
     DetailRow(shapes, R.drawable.ic_schedule, date, lines.joinToString("\n"))
+}
+
+/** How it repeats (SPEC §9.4): the rule in words, under it where it ends. */
+@Composable
+private fun RepetitionRow(shapes: ListItemShapes, event: EventDetails, words: EventWords) {
+    // Read as the editor reads it: from the day this occurrence starts on, in the event's own zone
+    val draft = remember(event) { EventDraft.of(event, ZoneId.systemDefault()) }
+    val (rule, end) = words.repetition(draft.repetition, draft.start.toLocalDate())
+    DetailRow(shapes, R.drawable.ic_repeat, rule, end)
 }
 
 /** The date an occurrence starts on, and the lines under it; also what sharing as text says. */

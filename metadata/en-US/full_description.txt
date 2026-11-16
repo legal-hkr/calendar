@@ -23,6 +23,13 @@ Calendars:
 - Calendars that exist only on the phone: create, rename, export to an ICS file, delete
 - Import of ICS files opened from another app, shared, or picked: one event or many, with events already saved updated instead of duplicated
 
+Widgets:
+- Agenda: the coming days with their events, as many as fit in the widget
+- Next event: the nearest event with its time and location
+- Month: the current month with a dot for each event, up to three a day
+- Upcoming events: the next event and the one after it, one row high
+- Upcoming events and Agenda also without a background, in white straight on the wallpaper
+
 And also:
 - Search in titles, locations and descriptions, upcoming or past
 - First day of the week, first hour of the day, week numbers, the view the app opens with

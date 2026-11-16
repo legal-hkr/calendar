@@ -1,0 +1,5 @@
+v0.2.0
+
+Nowości:
+- Widżety: „Harmonogram”, „Następne wydarzenie”, „Miesiąc” i „Najbliższe wydarzenia”, w kolorach systemu
+- „Najbliższe wydarzenia” i „Harmonogram” także bez tła, bezpośrednio na tapecie

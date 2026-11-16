@@ -3,7 +3,7 @@
  
 A private calendar for Android: month, week, day and agenda views of the calendars already on your phone, with reminders, repeating events and ICS import, and no Internet access.
  
-**Current version**: v0.1.0
+**Current version**: v0.2.0
  
 Source code and releases: [git.hnet.sh/hkr/calendar](https://git.hnet.sh/hkr/calendar)
  
@@ -45,6 +45,14 @@ Calendar shows and changes the events kept in the phone’s own calendar storage
 - **Colors**: One of twelve per calendar, and whether it is shown; kept by the app, never written to the account
 - **Local calendars**: Create, rename, export to an ICS file, delete
 - **ICS import**: Files opened from another app, shared, or picked; one event or many, with events already saved updated instead of duplicated
+
+### Widgets
+
+- **Agenda**: The coming days with their events, as many as fit in the widget; a tap opens the event or the day
+- **Next event**: The next event with its time and location
+- **Month**: The current month with a dot for each event, up to three a day
+- **Upcoming events**: The next event and the one after it, one row high, to fit under a clock widget
+- **Without a background**: Upcoming events and Agenda are also available in white text, directly on the wallpaper
 
 ### Settings
  

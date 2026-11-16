@@ -23,6 +23,13 @@ Kalendarze:
 - Kalendarze istniejące tylko w telefonie: tworzenie, zmiana nazwy, eksport do pliku ICS, usuwanie
 - Import plików ICS otwartych z innej aplikacji, udostępnionych albo wybranych: jedno wydarzenie lub wiele, a wydarzenia zapisane wcześniej są aktualizowane, a nie dublowane
 
+Widgets:
+- Agenda: the coming days with their events, as many as fit in the widget
+- Next event: the next event with its time and location
+- Month: the current month with a dot for each event, up to three a day
+- Upcoming events: the next event and the one after it, one row high
+- Upcoming events and Agenda are also available without a background, in white text directly on the wallpaper
+
 A także:
 - Wyszukiwanie w tytułach, miejscach i opisach, wśród nadchodzących albo minionych
 - Pierwszy dzień tygodnia, pierwsza godzina dnia, numery tygodni, widok po uruchomieniu

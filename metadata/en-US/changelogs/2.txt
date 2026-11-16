@@ -1,0 +1,5 @@
+v0.2.0
+
+New:
+- Widgets: “Agenda”, “Next event”, “Month” and “Upcoming events”, in your phone’s colors
+- “Upcoming events” and “Agenda” also without a background, directly on the wallpaper

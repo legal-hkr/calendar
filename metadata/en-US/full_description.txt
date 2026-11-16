@@ -1,0 +1,31 @@
+Calendar is a private calendar for Android. It shows and changes the events kept in the phone’s own calendar storage and has no access to the Internet: syncing is left to the apps that manage your accounts, for example DAVx⁵ with Nextcloud or any other CalDAV server. No account of its own, no ads, no analytics.
+
+Views:
+- Month with event tiles that show the start time and wrap long titles, or a compact grid with the chosen day’s list under it
+- Week and Day with an all-day strip, overlapping events side by side, a line for the current time and pinch to zoom
+- Agenda, a list of the days that have events
+- Months scroll as one strip of weeks; a tap on the title goes to any date
+
+Events:
+- An event page with location, guests, reminders and description, and your answer to an invitation
+- An editor where a new event needs only a title: date and time pickers, Today, Tomorrow and In a week, time zone, availability and visibility
+- Repeating events: daily, weekly on chosen days, monthly on a day or on “the third Wednesday”, yearly, ending on a date or after a number of occurrences
+- Changing or deleting a repeating event asks once: only this event, this and following events, or all events
+- Deleting with Undo; duplicating; sharing as an ICS file or as text
+
+Reminders:
+- Posted by the app itself at their exact time, even for events synced while the app was closed
+- Snooze, and Directions when the event has a location
+- Default reminders for timed and for all-day events
+
+Calendars:
+- A color from a palette of twelve and visibility for each calendar, kept by the app
+- Calendars that exist only on the phone: create, rename, export to an ICS file, delete
+- Import of ICS files opened from another app, shared, or picked: one event or many, with events already saved updated instead of duplicated
+
+And also:
+- Search in titles, locations and descriptions, upcoming or past
+- First day of the week, first hour of the day, week numbers, the view the app opens with
+- Backup and restore of settings and calendar colors to a file you choose
+- English and Polish, independent of the system language
+- Material 3 Expressive design with your phone’s colors

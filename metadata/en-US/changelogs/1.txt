@@ -1,4 +1,9 @@
 v0.1.0
 
-In development:
-- The app’s frame and the first settings pages
+First version:
+- Month, Week, Day and Agenda views of the calendars already on the phone
+- Event page and editor, with repeating events changed one at a time, from one onward, or all at once
+- Reminders posted by the app, with Snooze and Directions
+- Colors and visibility per calendar, local calendars with export to an ICS file
+- Search, import of ICS files, backup and restore of settings
+- No Internet access: syncing is left to the apps that manage your accounts

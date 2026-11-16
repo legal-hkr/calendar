@@ -1,0 +1,9 @@
+v0.1.0
+
+Pierwsza wersja:
+- Widoki Miesiąc, Tydzień, Dzień i Harmonogram dla kalendarzy, które są już w telefonie
+- Strona wydarzenia i edytor, z powtarzaniem i zmianą całej serii albo jej części
+- Przypomnienia wyświetlane przez aplikację, z odkładaniem i trasą dojazdu
+- Kolor i widoczność każdego kalendarza, kalendarze lokalne z eksportem do pliku ICS
+- Wyszukiwanie, import plików ICS, kopia zapasowa ustawień
+- Bez dostępu do Internetu: synchronizacją zajmują się aplikacje obsługujące konta

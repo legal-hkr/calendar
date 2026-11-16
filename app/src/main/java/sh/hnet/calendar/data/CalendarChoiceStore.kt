@@ -26,6 +26,11 @@ class CalendarChoiceStore(private val context: Context) {
 
     suspend fun setShown(calendar: String, shown: Boolean) = change(calendar) { it.copy(shown = shown) }
 
+    /** A restored backup: the choices become these, and calendars it says nothing of are the provider's again. */
+    suspend fun replace(choices: Map<String, CalendarChoice>) {
+        context.calendarChoices.edit { it[key] = CalendarChoices.encode(choices) }
+    }
+
     private suspend fun change(calendar: String, change: (CalendarChoice) -> CalendarChoice) {
         context.calendarChoices.edit { stored ->
             val choices = CalendarChoices.decode(stored[key])

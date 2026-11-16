@@ -22,6 +22,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +56,7 @@ import sh.hnet.calendar.ui.event.EditorScreen
 import sh.hnet.calendar.ui.event.EventScreen
 import sh.hnet.calendar.ui.settings.AboutScreen
 import sh.hnet.calendar.ui.settings.AppLicenseScreen
+import sh.hnet.calendar.ui.settings.BackupScreen
 import sh.hnet.calendar.ui.settings.LanguageScreen
 import sh.hnet.calendar.ui.settings.LicensesScreen
 import sh.hnet.calendar.ui.settings.ResetScreen
@@ -66,6 +68,7 @@ import sh.hnet.calendar.ui.settings.EventsSettingsScreen
 import sh.hnet.calendar.ui.settings.RemindersSettingsScreen
 import sh.hnet.calendar.ui.settings.ViewSettingsScreen
 import sh.hnet.calendar.ui.welcome.AccessScreen
+import sh.hnet.calendar.ui.welcome.FoundScreen
 import sh.hnet.calendar.ui.welcome.RemindersScreen
 
 /**
@@ -108,6 +111,8 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
     var error by remember { mutableStateOf<ErrorDetails?>(null) }
     var welcome by rememberSaveable { mutableStateOf(!CalendarAccess.welcomeSeen(appContext) && !app.calendars.hasAccess()) }
     // The second first-run page (SPEC §15.1): once, also for who started before the app reminded of anything, unless notifications are on already
+    // The last first-run page, "Calendars found" (SPEC §15.1): only in the run that began with the access page
+    var showFound by rememberSaveable { mutableStateOf(!CalendarAccess.welcomeSeen(appContext) && !app.calendars.hasAccess()) }
     var askReminders by rememberSaveable { mutableStateOf(!NotificationAccess.pageSeen(appContext) && !ReminderNotifications.manager(appContext).areNotificationsEnabled()) }
 
     val motion = MaterialTheme.motionScheme
@@ -198,6 +203,7 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
                             onOpenEvents = { open(Screen.SettingsEvents) },
                             onOpenReminders = { open(Screen.SettingsReminders) },
                             onOpenLanguage = { open(Screen.SettingsLanguage) },
+                            onOpenBackup = { open(Screen.SettingsBackup) },
                             onOpenReset = { open(Screen.SettingsReset) },
                             onOpenAbout = { open(Screen.SettingsAbout) },
                         )
@@ -208,6 +214,7 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
                     entry<Screen.SettingsEvents> { EventsSettingsScreen(onBack = back) }
                     entry<Screen.SettingsReminders> { RemindersSettingsScreen(onBack = back) }
                     entry<Screen.SettingsLanguage> { LanguageScreen(onBack = back) }
+                    entry<Screen.SettingsBackup> { BackupScreen(onBack = back, snackbars = snackbars, messageScope = messages) }
                     entry<Screen.SettingsReset> { ResetScreen(onBack = back) }
                     entry<Screen.SettingsAbout> {
                         AboutScreen(
@@ -235,6 +242,9 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
                     NotificationAccess.markPageSeen(appContext)
                     askReminders = false
                 })
+            } else if (showFound) {
+                // Without access there is nothing to list: the main screen says so
+                if (app.calendars.hasAccess()) FoundScreen(snackbars, messages, onDone = { showFound = false }) else SideEffect { showFound = false }
             }
             error?.let { ErrorDetailsDialog(it, onDismiss = { error = null }) }
             // One host for every page, above the system's navigation area

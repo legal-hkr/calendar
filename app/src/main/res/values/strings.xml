@@ -344,6 +344,35 @@
     <string name="error_calendar_name_taken">A local calendar with this name already exists</string>
     <string name="msg_no_calendars_note">A calendar created here exists only on this phone. Accounts are added in the apps that sync them, for example DAVx⁵.</string>
 
+    <!-- Backup and restore; first run: calendars found -->
+    <string name="title_backup">Backup and restore</string>
+    <string name="desc_backup_row">Settings and calendar colors in one file</string>
+    <string name="msg_backup_intro">A backup holds the settings and the color and visibility of each calendar.</string>
+    <string name="msg_backup_note">Events aren’t in the backup. They are kept by the system and synced by the apps that manage your accounts. Local calendars can be exported to an ICS file in Calendars.</string>
+    <string name="label_create_backup">Create backup</string>
+    <string name="label_last_backup">Last backup: %s</string>
+    <string name="label_no_backup">No backup yet</string>
+    <string name="label_saving_backup">Saving…</string>
+    <string name="label_restore_backup">Restore from backup</string>
+    <string name="desc_restore_backup">Replaces the settings and the calendar colors</string>
+    <string name="msg_backup_saved"><![CDATA[Backup saved as <b>%s</b>]]></string>
+    <string name="error_backup_write"><![CDATA[Calendar couldn’t write <b>%s</b>.]]></string>
+    <string name="error_backup_not_ours"><![CDATA[<b>%s</b> isn’t a Calendar backup.]]></string>
+    <string name="error_backup_newer">This backup was made by a newer version of Calendar. Update the app to restore it.</string>
+    <string name="error_backup_unreadable"><![CDATA[Calendar couldn’t read <b>%s</b>.]]></string>
+    <string name="title_restore_confirm">Restore this backup?</string>
+    <string name="msg_restore_from"><![CDATA[<b>%1$s</b> – made on %2$s with version %3$s.]]></string>
+    <plurals name="msg_restore_summary">
+        <item quantity="one">Colors and visibility of %d calendar. The current settings and colors will be replaced.</item>
+        <item quantity="other">Colors and visibility of %d calendars. The current settings and colors will be replaced.</item>
+    </plurals>
+    <string name="msg_restored">Settings and calendar colors restored</string>
+    <string name="title_wizard_found">Calendars found</string>
+    <string name="msg_wizard_found">Colors and visibility can be changed later in Settings.</string>
+    <string name="button_start">Start</string>
+    <string name="button_restore_backup">Restore from a backup</string>
+    <string name="button_skip">Skip</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>
     <string name="msg_wizard_access_1">Calendar shows and changes the events saved on this phone. Without access it can’t show any of them.</string>

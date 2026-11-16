@@ -25,6 +25,7 @@ sealed interface Screen : NavKey {
     @Serializable data object SettingsEvents : Screen
     @Serializable data object SettingsReminders : Screen
     @Serializable data object SettingsLanguage : Screen
+    @Serializable data object SettingsBackup : Screen
     @Serializable data object SettingsReset : Screen
     @Serializable data object SettingsAbout : Screen
     @Serializable data object SettingsWhatsNew : Screen

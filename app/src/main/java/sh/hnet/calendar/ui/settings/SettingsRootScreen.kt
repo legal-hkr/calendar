@@ -11,11 +11,11 @@ import sh.hnet.calendar.ui.components.SettingsPage
 
 /**
  * The Settings root, a page over the calendar. Grouped as Music's, Clock's, News's and Calculator's: App
- * (language), Data (reset) and About on its own, after the app's own groups: View, Events and Reminders, then Calendars;
- * Import from a file and Backup join with their stages.
+ * (language), Data (backup and restore, reset) and About on its own, after the app's own groups: View, Events and
+ * Reminders, then Calendars; Import from a file joins with its stage.
  */
 @Composable
-fun SettingsRootScreen(onBack: () -> Unit, onOpenCalendars: () -> Unit, onOpenView: () -> Unit, onOpenEvents: () -> Unit, onOpenReminders: () -> Unit, onOpenLanguage: () -> Unit, onOpenReset: () -> Unit, onOpenAbout: () -> Unit) {
+fun SettingsRootScreen(onBack: () -> Unit, onOpenCalendars: () -> Unit, onOpenView: () -> Unit, onOpenEvents: () -> Unit, onOpenReminders: () -> Unit, onOpenBackup: () -> Unit, onOpenLanguage: () -> Unit, onOpenReset: () -> Unit, onOpenAbout: () -> Unit) {
     val context = LocalContext.current
     val version = BuildConfig.VERSION_NAME.removePrefix("v")
     // Read on every composition: changing it recreates the activity anyway
@@ -43,6 +43,9 @@ fun SettingsRootScreen(onBack: () -> Unit, onOpenCalendars: () -> Unit, onOpenVi
             }
         }
         SettingsGroup(stringResource(R.string.title_settings_group_data)) {
+            row { shapes ->
+                SettingsNavigationRow(shapes, R.drawable.ic_settings_backup_restore, stringResource(R.string.title_backup), stringResource(R.string.desc_backup_row), onClick = onOpenBackup)
+            }
             row { shapes ->
                 SettingsNavigationRow(shapes, R.drawable.ic_restart_alt, stringResource(R.string.title_settings_reset), stringResource(R.string.desc_settings_reset_row), onClick = onOpenReset)
             }

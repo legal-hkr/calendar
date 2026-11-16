@@ -379,6 +379,37 @@
     <string name="error_calendar_name_taken">Kalendarz lokalny o tej nazwie już istnieje</string>
     <string name="msg_no_calendars_note">Kalendarz utworzony tutaj istnieje tylko w tym telefonie. Konta można dodać w aplikacjach, które je synchronizują, na przykład w DAVx⁵.</string>
 
+    <!-- Backup and restore; first run: calendars found -->
+    <string name="title_backup">Kopia zapasowa</string>
+    <string name="desc_backup_row">Ustawienia i kolory kalendarzy w jednym pliku</string>
+    <string name="msg_backup_intro">Kopia obejmuje ustawienia oraz kolor i widoczność każdego kalendarza.</string>
+    <string name="msg_backup_note">Kopia nie zawiera wydarzeń. Przechowuje je system, a synchronizują aplikacje obsługujące konta. Kalendarze lokalne można wyeksportować do pliku ICS na stronie Kalendarze.</string>
+    <string name="label_create_backup">Utwórz kopię</string>
+    <string name="label_last_backup">Ostatnia kopia: %s</string>
+    <string name="label_no_backup">Nie utworzono jeszcze kopii</string>
+    <string name="label_saving_backup">Zapisywanie…</string>
+    <string name="label_restore_backup">Przywróć z kopii</string>
+    <string name="desc_restore_backup">Zastępuje ustawienia i kolory kalendarzy</string>
+    <string name="msg_backup_saved"><![CDATA[Zapisano kopię jako <b>%s</b>]]></string>
+    <string name="error_backup_write"><![CDATA[Nie udało się zapisać pliku <b>%s</b>.]]></string>
+    <string name="error_backup_not_ours"><![CDATA[Plik <b>%s</b> nie jest kopią zapasową tej aplikacji.]]></string>
+    <string name="error_backup_newer">Tę kopię utworzyła nowsza wersja aplikacji. Zaktualizuj aplikację, żeby ją przywrócić.</string>
+    <string name="error_backup_unreadable"><![CDATA[Nie udało się odczytać pliku <b>%s</b>.]]></string>
+    <string name="title_restore_confirm">Przywrócić tę kopię?</string>
+    <string name="msg_restore_from"><![CDATA[<b>%1$s</b> – kopia z %2$s, wersja %3$s.]]></string>
+    <plurals name="msg_restore_summary">
+        <item quantity="one">Kolor i widoczność %d kalendarza. Obecne ustawienia i kolory zostaną zastąpione.</item>
+        <item quantity="few">Kolory i widoczność %d kalendarzy. Obecne ustawienia i kolory zostaną zastąpione.</item>
+        <item quantity="many">Kolory i widoczność %d kalendarzy. Obecne ustawienia i kolory zostaną zastąpione.</item>
+        <item quantity="other">Kolory i widoczność %d kalendarzy. Obecne ustawienia i kolory zostaną zastąpione.</item>
+    </plurals>
+    <string name="msg_restored">Przywrócono ustawienia i kolory kalendarzy</string>
+    <string name="title_wizard_found">Znalezione kalendarze</string>
+    <string name="msg_wizard_found">Kolory i widoczność można zmienić później w Ustawieniach.</string>
+    <string name="button_start">Zacznij</string>
+    <string name="button_restore_backup">Przywróć z kopii zapasowej</string>
+    <string name="button_skip">Pomiń</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Dostęp do kalendarzy</string>
     <string name="msg_wizard_access_1">Aplikacja pokazuje i zmienia wydarzenia zapisane w telefonie. Bez dostępu nie może wyświetlić żadnego z nich.</string>

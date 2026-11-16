@@ -138,6 +138,25 @@ class Preferences(private val context: Context) {
         context.settings.edit { it[SNOOZE] = minutes }
     }
 
+    /**
+     * A restored backup: the settings of Settings › View, › Events and › Reminders become these.
+     * How the app was left – its view, the event list, the hour's height, the last calendar – is
+     * not a backup's to change.
+     */
+    suspend fun replace(view: ViewSettings, events: EventDefaults, snooze: Int) = context.settings.edit {
+        if (view.startView == null) it.remove(START_VIEW) else it[START_VIEW] = view.startView.key
+        if (view.weekStart == null) it.remove(WEEK_START) else it[WEEK_START] = view.weekStart.value
+        it[FIRST_HOUR] = view.firstHour
+        it[WEEK_NUMBERS] = view.weekNumbers
+        it[DIM_PAST] = view.dimPast
+        it[SHOW_DECLINED] = view.showDeclined
+        if (events.calendar == null) it.remove(DEFAULT_CALENDAR) else it[DEFAULT_CALENDAR] = events.calendar
+        it[DEFAULT_LENGTH] = events.length
+        it[REMINDERS_TIMED] = events.remindersTimed.joinToString(",")
+        it[REMINDERS_ALL_DAY] = events.remindersAllDay.joinToString(",")
+        it[SNOOZE] = snooze
+    }
+
     /** Restore defaults (Settings › Reset): every setting of this store back to its default. */
     suspend fun restoreDefaults() = context.settings.edit { it.clear() }
 

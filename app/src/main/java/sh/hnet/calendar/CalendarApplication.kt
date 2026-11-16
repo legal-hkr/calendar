@@ -3,6 +3,7 @@ package sh.hnet.calendar
 import android.app.Application
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import sh.hnet.calendar.backup.BackupManager
 import sh.hnet.calendar.data.CalendarChoiceStore
 import sh.hnet.calendar.data.CalendarSource
 import sh.hnet.calendar.data.DeleteQueue
@@ -31,6 +32,9 @@ class CalendarApplication : Application() {
 
     /** The user's color and visibility per calendar. */
     val calendarChoices: CalendarChoiceStore by lazy { CalendarChoiceStore(this) }
+
+    /** Backup and restore of the settings and the calendars' colors. */
+    val backup: BackupManager by lazy { BackupManager(this, getSharedPreferences("stamps", MODE_PRIVATE)) }
 
     /** Works out and posts the reminders of events. */
     val reminders: ReminderScheduler by lazy { ReminderScheduler(this) }

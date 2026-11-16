@@ -18,11 +18,12 @@ import kotlinx.coroutines.withContext
 import sh.hnet.calendar.CalendarApplication
 import sh.hnet.calendar.model.CalendarChoices
 import sh.hnet.calendar.model.ReminderPlan
+import sh.hnet.calendar.widget.Widgets
 
 /**
  * The app posts the reminders itself (the owner's decision; the logic agreed 16 Nov 2026): it
  * reads them from the provider, shows what is due, and sets one exact alarm for the nearest one
- * to come. [sync] does all of it and is run after the alarm, after any change of the calendar –
+ * to come. [sync] does all of it – and redraws the widgets – and is run after the alarm, after any change of the calendar –
  * by a sync too, with the app closed ([ChangeJob]) –, after a restart of the phone, a change of
  * the clock or the time zone, an update of the app, and at least twice a day.
  */
@@ -99,6 +100,8 @@ class ReminderScheduler(private val app: CalendarApplication) {
             val next = listOfNotNull(ReminderPlan.next(reminders, now, zone, store.shown()), waiting.minOfOrNull { it.until }, now + FALLBACK).min()
             set(alarms, next, alarm)
         }
+        // Every look at the calendar is one for the widgets too (SPEC §17.12); a receiver or the job waits for it
+        Widgets.updateAndWait(app)
     }
 
     /**

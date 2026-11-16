@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Agenda widget (SPEC §17.3): the coming days, each starting with its own row (the date badge; the first also the new event pill), then that day's strips – as many whole pieces as the widget's height holds, with no scrolling (the owner's decision of 16 Nov 2026 over the SPEC's scrolling list). The pieces are added in code; 2 dp all round leave room for their shadows. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_floating_frame"
+    android:clipToOutline="true"
+    android:clipChildren="false">
+
+    <LinearLayout
+        android:id="@+id/list"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="2dp" />
+</FrameLayout>

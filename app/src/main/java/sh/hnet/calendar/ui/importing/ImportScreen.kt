@@ -2,6 +2,7 @@
 
 package sh.hnet.calendar.ui.importing
 
+import sh.hnet.calendar.GoTo
 import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -181,7 +182,7 @@ fun ImportScreen(
                 snackbars.showSnackbar(if (imported.updated == 1) updated else if (imported.canceled == 1) marked else added, duration = SnackbarDuration.Short)
             } else {
                 // Several: Day on the first one's date; Undo takes back what was added – when nothing was changed besides (§13.7)
-                first?.let { app.goTo.value = JulianDay.of(it.startDate(ZoneId.systemDefault())) }
+                first?.let { app.goTo.value = GoTo(JulianDay.of(it.startDate(ZoneId.systemDefault()))) }
                 snackbars.currentSnackbarData?.dismiss()
                 if (imported.updated + imported.canceled == 0) {
                     val result = snackbars.showSnackbar(addedMany.format(imported.added.size), actionLabel = undo, duration = SnackbarDuration.Short)

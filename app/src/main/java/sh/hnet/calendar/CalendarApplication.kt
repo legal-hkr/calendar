@@ -10,8 +10,12 @@ import sh.hnet.calendar.data.CalendarSource
 import sh.hnet.calendar.data.DeleteQueue
 import sh.hnet.calendar.data.EventWriter
 import sh.hnet.calendar.data.LocalCalendars
+import sh.hnet.calendar.model.CalendarView
 import sh.hnet.calendar.reminders.ReminderNotifications
 import sh.hnet.calendar.reminders.ReminderScheduler
+
+/** The Julian [day] the main screen is asked to show, in [view]. */
+data class GoTo(val day: Int, val view: CalendarView = CalendarView.DAY)
 
 class CalendarApplication : Application() {
     /** Work that outlives a screen; lives as long as the process. */
@@ -37,8 +41,8 @@ class CalendarApplication : Application() {
     /** Backup and restore of the settings and the calendars' colors. */
     val backup: BackupManager by lazy { BackupManager(this, getSharedPreferences("stamps", MODE_PRIVATE)) }
 
-    /** A day the main screen is asked to show in Day – after an import of several events (SPEC §13.9); taken once. */
-    val goTo = MutableStateFlow<Int?>(null)
+    /** A day the main screen is asked to show – in Day after an import of several events (SPEC §13.9), or where a widget's tap points; taken once. */
+    val goTo = MutableStateFlow<GoTo?>(null)
 
     /** Works out and posts the reminders of events. */
     val reminders: ReminderScheduler by lazy { ReminderScheduler(this) }

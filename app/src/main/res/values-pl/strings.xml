@@ -529,4 +529,21 @@
     <string name="desc_licenses">Składniki open source użyte w aplikacji</string>
     <string name="title_about_source">Kod źródłowy</string>
     <string name="msg_about_privacy">Aplikacja nie ma dostępu do Internetu. Wydarzenia przechowuje system, a synchronizują je aplikacje obsługujące konta.</string>
+
+    <!-- Widgets (SPEC §17) -->
+    <string name="widget_agenda_name">Harmonogram</string>
+    <string name="widget_agenda_description">Nadchodzące wydarzenia, dzień po dniu.</string>
+    <string name="widget_next_name">Następne wydarzenie</string>
+    <string name="widget_next_description">Najbliższe wydarzenie z godziną i miejscem.</string>
+    <string name="widget_month_name">Miesiąc</string>
+    <string name="widget_month_description">Miesiąc ze znacznikami w dniach z wydarzeniami.</string>
+    <string name="widget_upcoming_name">Najbliższe wydarzenia</string>
+    <string name="widget_upcoming_description">Najbliższe wydarzenie i następne po nim.</string>
+    <string name="widget_all_day_short">cały dzień</string>
+    <string name="widget_day_and_time">%1$s %2$s</string>
+    <string name="widget_tomorrow_lowercase">jutro</string>
+    <string name="widget_nothing_planned">Nic nie zaplanowano</string>
+    <string name="content_description_widget_event">%1$s, %2$s</string>
+    <string name="content_description_widget_new_event">Nowe wydarzenie</string>
+    <string name="content_description_widget_open_day">Otwórz %s w aplikacji</string>
 </resources>

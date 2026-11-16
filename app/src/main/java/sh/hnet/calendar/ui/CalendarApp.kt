@@ -98,11 +98,12 @@ fun CalendarApp(asked: Screen? = null, onOpened: () -> Unit = {}) {
     }
 
     val app = appContext as CalendarApplication
-    // A tapped reminder, or a file handed over by another app: its page over the calendar, whatever was open
+    // A tapped reminder or widget, or a file handed over by another app: its page over the calendar, whatever was open;
+    // the calendar itself (a widget's day) is the root
     LaunchedEffect(asked) {
         if (asked != null) {
             while (stack.size > 1) stack.removeAt(stack.lastIndex)
-            stack.add(asked)
+            if (asked != Screen.Calendar) stack.add(asked)
             onOpened()
         }
     }

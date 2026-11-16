@@ -168,7 +168,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
     var picking by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
-    // Asked from elsewhere to show a day – after an import of several events (SPEC §13.9)
+    // Asked from elsewhere to show a day – after an import of several events (SPEC §13.9), from a widget
     val app = LocalContext.current.applicationContext as CalendarApplication
     val asked by app.goTo.collectAsStateWithLifecycle()
 
@@ -205,7 +205,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
     LaunchedEffect(asked) {
         asked?.let {
             app.goTo.value = null
-            open(CalendarView.DAY, it)
+            open(it.view, it.day)
         }
     }
 

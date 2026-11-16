@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A day's own row in the Agenda widget (SPEC §17.3), 30 dp: the date badge at the start and, in the first row only, the new event pill at the end. The 6 dp above part it from the piece before; the first row has none (set in code). The badge never overlaps a strip. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="ContentDescription"
+    android:id="@+id/header"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:paddingTop="6dp">
+
+    <include layout="@layout/widget_badge" />
+
+    <FrameLayout
+        android:id="@+id/new_event"
+        android:layout_width="44dp"
+        android:layout_height="30dp"
+        android:layout_gravity="end"
+        android:background="@drawable/widget_new"
+        android:elevation="2dp">
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_add"
+            android:tint="@color/widget_on_primary"
+            tools:ignore="UseAppTint" />
+    </FrameLayout>
+</FrameLayout>

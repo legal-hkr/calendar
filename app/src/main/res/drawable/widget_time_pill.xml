@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The time pill of the Next event widget (SPEC §17.4), fully round at 22 dp: white, tinted with the calendar's fill in code. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@android:color/white" />
+    <corners android:radius="11dp" />
+</shape>

@@ -14,6 +14,8 @@ import sh.hnet.calendar.reminders.ReminderNotifications
 import sh.hnet.calendar.ui.Screen
 import sh.hnet.calendar.ui.CalendarApp
 import sh.hnet.calendar.ui.theme.CalendarTheme
+import sh.hnet.calendar.widget.WidgetRequest
+import sh.hnet.calendar.widget.Widgets
 
 class MainActivity : ComponentActivity() {
     /** What the app was started for – the event of a tapped reminder, a file to import –, until it has opened that page. */
@@ -24,7 +26,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) {
             WhatsNew.recordStart(this)
-            asked = event(intent) ?: file(intent)
+            asked = event(intent) ?: widget(intent) ?: file(intent)
         }
         setContent {
             CalendarTheme { CalendarApp(asked, onOpened = { asked = null }) }
@@ -33,7 +35,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        (event(intent) ?: file(intent))?.let { asked = it }
+        (event(intent) ?: widget(intent) ?: file(intent))?.let { asked = it }
     }
 
     /** A calendar file opened with the app or shared to it (SPEC §13.1). The permission to read it lasts as long as this activity. */
@@ -44,6 +46,20 @@ class MainActivity : ComponentActivity() {
             else -> null
         } ?: return null
         return Screen.Import(uri.toString(), System.nanoTime())
+    }
+
+    /** What a tap on a widget points at (SPEC §17): an event, the editor, or the calendar on a day – then the root, with the day handed over. */
+    private fun widget(intent: Intent?): Screen? {
+        if (intent?.action != Intent.ACTION_VIEW) return null
+        return when (val request = WidgetRequest.of(intent.data) ?: return null) {
+            is WidgetRequest.Event -> Screen.Event(request.eventId, request.begin, request.end)
+            WidgetRequest.NewEvent -> Screen.Editor(session = System.nanoTime())
+            is WidgetRequest.Day -> {
+                (application as CalendarApplication).goTo.value = GoTo(request.day, request.view)
+                Screen.Calendar
+            }
+            WidgetRequest.Open -> Screen.Calendar
+        }
     }
 
     /** The occurrence a reminder's notification names (SPEC §14.3). */
@@ -61,9 +77,11 @@ class MainActivity : ComponentActivity() {
         (application as CalendarApplication).reminders.request()
     }
 
-    /** The app leaves the screen: a delete still offering Undo is carried out, as nobody is left to undo it (the owner, 15 Nov 2026). */
+    /** The app leaves the screen: a delete still offering Undo is carried out, as nobody is left to undo it (the owner, 15 Nov 2026), and the widgets are drawn anew. */
     override fun onStop() {
         super.onStop()
         (application as CalendarApplication).deletes.commit()
+        // Whatever changed meanwhile that the calendar doesn't tell of: the week's first day, the language
+        Widgets.update(this)
     }
 }

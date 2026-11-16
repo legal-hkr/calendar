@@ -493,4 +493,21 @@
     <string name="label_apache_license" translatable="false">Apache License 2.0</string>
     <string name="title_about_source">Source code</string>
     <string name="msg_about_privacy">Calendar has no access to the Internet. Events are kept by the system and synced by the apps that manage your accounts.</string>
+
+    <!-- Widgets (SPEC §17) -->
+    <string name="widget_agenda_name">Agenda</string>
+    <string name="widget_agenda_description">The coming events, day by day.</string>
+    <string name="widget_next_name">Next event</string>
+    <string name="widget_next_description">The next event with its time and location.</string>
+    <string name="widget_month_name">Month</string>
+    <string name="widget_month_description">The month with marks on days that have events.</string>
+    <string name="widget_upcoming_name">Upcoming events</string>
+    <string name="widget_upcoming_description">The next event and the one after it.</string>
+    <string name="widget_all_day_short">all day</string>
+    <string name="widget_day_and_time">%1$s %2$s</string>
+    <string name="widget_tomorrow_lowercase">tomorrow</string>
+    <string name="widget_nothing_planned">Nothing planned</string>
+    <string name="content_description_widget_event">%1$s, %2$s</string>
+    <string name="content_description_widget_new_event">New event</string>
+    <string name="content_description_widget_open_day">Open %s in Calendar</string>
 </resources>

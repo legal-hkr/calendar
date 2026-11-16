@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Upcoming events (SPEC §17.6): four by one cells – it fits under a clock widget –, resizable in width only. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_upcoming_description"
+    android:initialLayout="@layout/widget_upcoming_nothing"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="200dp"
+    android:minResizeHeight="40dp"
+    android:previewLayout="@layout/widget_upcoming_preview"
+    android:resizeMode="horizontal"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

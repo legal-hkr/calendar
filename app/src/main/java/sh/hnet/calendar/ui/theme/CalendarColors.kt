@@ -34,7 +34,8 @@ fun CalendarColor.dimmedFill(): Color {
     return Color((fill.red + surface.red) / 2f, (fill.green + surface.green) / 2f, (fill.blue + surface.blue) / 2f)
 }
 
-private fun CalendarColor.fillRes(): Int = when (this) {
+/** The fill's color resource; the widgets set it by id, so it follows the theme on the home screen. */
+fun CalendarColor.fillRes(): Int = when (this) {
     CalendarColor.RED -> R.color.calendar_red_fill
     CalendarColor.ORANGE -> R.color.calendar_orange_fill
     CalendarColor.AMBER -> R.color.calendar_amber_fill
@@ -49,7 +50,8 @@ private fun CalendarColor.fillRes(): Int = when (this) {
     CalendarColor.GRAPHITE -> R.color.calendar_graphite_fill
 }
 
-private fun CalendarColor.onRes(): Int = when (this) {
+/** Text on the fill, as a color resource. */
+fun CalendarColor.onRes(): Int = when (this) {
     CalendarColor.RED -> R.color.calendar_red_on
     CalendarColor.ORANGE -> R.color.calendar_orange_on
     CalendarColor.AMBER -> R.color.calendar_amber_on

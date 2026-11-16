@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Agenda (SPEC §17.3): four by three cells, resizable down to three by two. As many whole pieces as the height holds; nothing scrolls. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_agenda_description"
+    android:initialLayout="@layout/widget_agenda"
+    android:minWidth="250dp"
+    android:minHeight="180dp"
+    android:minResizeWidth="200dp"
+    android:minResizeHeight="180dp"
+    android:previewLayout="@layout/widget_agenda_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="3"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

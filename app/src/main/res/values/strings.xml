@@ -108,6 +108,7 @@
     <string name="title_discard_changes">Discard changes?</string>
     <string name="button_discard">Discard</string>
     <string name="button_keep_editing">Keep editing</string>
+    <string name="label_calendar_hidden">Hidden in Calendar</string>
     <string name="desc_calendar_other_account">Another account. Duplicate the event to copy it there.</string>
     <string name="desc_calendar_stays">A repeating event or one with guests stays in its calendar. Duplicate it to copy it there.</string>
     <string name="title_event_changed">This event was changed in the meantime</string>

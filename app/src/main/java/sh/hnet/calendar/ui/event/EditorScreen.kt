@@ -443,7 +443,8 @@ private fun CalendarRow(shapes: ListItemShapes, ready: EditorState.Ready, onChoo
             colors = settingsRowColors(),
             leadingContent = { Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { if (current != null) Box(Modifier.size(16.dp).background(current.color.fill(), CircleShape)) } },
             trailingContent = { Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null) },
-            supportingContent = { Text(account(current), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            // A hidden calendar can be chosen, but the event then shows in no view: the row says so
+            supportingContent = { Text(if (current?.shown == false) stringResource(R.string.label_calendar_hidden) else account(current), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         ) {
             Text(current?.name ?: stringResource(R.string.label_calendar), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -456,7 +457,11 @@ private fun CalendarRow(shapes: ListItemShapes, ready: EditorState.Ready, onChoo
                             Column {
                                 Text(calendar.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(
-                                    if (allowed) account(calendar) else stringResource(if (ready.sameAccount(calendar)) R.string.desc_calendar_stays else R.string.desc_calendar_other_account),
+                                    when {
+                                        !allowed -> stringResource(if (ready.sameAccount(calendar)) R.string.desc_calendar_stays else R.string.desc_calendar_other_account)
+                                        !calendar.shown -> stringResource(R.string.label_calendar_hidden)
+                                        else -> account(calendar)
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

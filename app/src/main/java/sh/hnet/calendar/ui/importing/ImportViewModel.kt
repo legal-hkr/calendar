@@ -137,10 +137,12 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
             _state.value = ImportState.Failed(ImportProblem.NO_CALENDAR, fileName)
             return
         }
-        // The calendar new events go to: the one chosen in Settings › Events, else the last used, else the first shown
+        // The calendar new events go to: the one chosen in Settings › Events, else the last used, else the first
         val defaults = app.preferences.eventDefaults.first()
-        val usual = defaults.calendar ?: app.preferences.lastCalendar.first()
-        val calendar = calendars.firstOrNull { it.key == usual } ?: calendars.firstOrNull { it.shown } ?: calendars.first()
+        val last = app.preferences.lastCalendar.first()
+        // Never by itself a hidden one: what was imported would be nowhere to be seen
+        val shown = calendars.filter { it.shown }
+        val calendar = shown.firstOrNull { it.key == defaults.calendar } ?: shown.firstOrNull { it.key == last } ?: shown.firstOrNull() ?: calendars.first()
         // Which of the events are saved already, known by their ids (SPEC §13.5)
         val all = try {
             CalendarChoices.apply(app.calendars.calendars(), app.calendarChoices.choices.first()).associateBy { it.id }

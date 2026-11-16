@@ -104,10 +104,12 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val calendars = CalendarChoices.apply(source.calendars(), app.calendarChoices.choices.first()).filter { it.writable }
         if (calendars.isEmpty()) return EditorState.Gone
         val zone = ZoneId.systemDefault()
-        // A new event goes to the calendar chosen in Settings › Events, else where the last one went, else to the first calendar shown
+        // A new event goes to the calendar chosen in Settings › Events, else where the last one went, else to the first one –
+        // but never by itself to a calendar that is hidden: the event would be saved and nowhere to be seen (found by the owner, 16 Nov 2026)
         val defaults = app.preferences.eventDefaults.first()
-        val last = defaults.calendar ?: app.preferences.lastCalendar.first()
-        val usual = calendars.firstOrNull { it.key == last } ?: calendars.firstOrNull { it.shown } ?: calendars.first()
+        val last = app.preferences.lastCalendar.first()
+        val shown = calendars.filter { it.shown }
+        val usual = shown.firstOrNull { it.key == defaults.calendar } ?: shown.firstOrNull { it.key == last } ?: shown.firstOrNull() ?: calendars.first()
         if (screen.eventId == 0L) {
             val now = LocalDateTime.now(zone)
             val day = if (screen.day > 0) JulianDay.toDate(screen.day) else now.toLocalDate()

@@ -93,6 +93,7 @@
     <string name="title_discard_changes">Odrzucić zmiany?</string>
     <string name="button_discard">Odrzuć</string>
     <string name="button_keep_editing">Edytuj dalej</string>
+    <string name="label_calendar_hidden">Ukryty w aplikacji</string>
     <string name="desc_calendar_other_account">Inne konto. Zduplikuj wydarzenie, żeby je tam skopiować.</string>
     <string name="desc_calendar_stays">Wydarzenie powtarzające się lub z gośćmi zostaje w swoim kalendarzu. Zduplikuj je, żeby je tam skopiować.</string>
     <string name="title_event_changed">To wydarzenie zostało w międzyczasie zmienione</string>

@@ -410,6 +410,35 @@
     <string name="button_restore_backup">Przywróć z kopii zapasowej</string>
     <string name="button_skip">Pomiń</string>
 
+    <!-- Import from a file -->
+    <string name="label_settings_import">Import z pliku</string>
+    <string name="title_import">Import z pliku</string>
+    <string name="label_file"><![CDATA[Plik: <b>%s</b>]]></string>
+    <string name="label_file_events"><![CDATA[Plik: <b>%1$s</b> (%2$s)]]></string>
+    <plurals name="label_events_count">
+        <item quantity="one">%d wydarzenie</item>
+        <item quantity="few">%d wydarzenia</item>
+        <item quantity="many">%d wydarzeń</item>
+        <item quantity="other">%d wydarzenia</item>
+    </plurals>
+    <string name="button_add_to_calendar">Dodaj do kalendarza</string>
+    <string name="label_reminders_default">Domyślne: %s</string>
+    <string name="label_reminders_usual">Domyślne</string>
+    <string name="label_reminders_none">Brak</string>
+    <string name="label_reminders_from_file">Z pliku</string>
+    <string name="label_select_all">Wszystkie</string>
+    <string name="label_selected_of">Wybrano: %1$d z %2$d</string>
+    <string name="msg_event_added">Dodano wydarzenie</string>
+    <string name="msg_events_added">Dodano wydarzenia: %d</string>
+    <string name="error_import_nothing_added">Nie udało się dodać żadnego wydarzenia.</string>
+    <string name="error_import_unreadable_title">Nie można odczytać pliku</string>
+    <string name="error_import_unreadable">To nie jest poprawny plik ICS albo plik jest uszkodzony. Pobierz go ponownie lub wybierz inny.</string>
+    <string name="error_import_no_events_title">W pliku nie ma wydarzeń</string>
+    <string name="error_import_no_events">Plik zawiera tylko zadania albo informacje o dostępności. Aplikacja importuje tylko wydarzenia.</string>
+    <string name="error_import_no_calendar_title">Brak kalendarza, do którego można dodać wydarzenia</string>
+    <string name="error_import_no_calendar">Wszystkie kalendarze w telefonie są tylko do odczytu. Utwórz kalendarz lokalny, żeby zaimportować wydarzenia.</string>
+    <string name="button_choose_another_file">Wybierz inny plik</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Dostęp do kalendarzy</string>
     <string name="msg_wizard_access_1">Aplikacja pokazuje i zmienia wydarzenia zapisane w telefonie. Bez dostępu nie może wyświetlić żadnego z nich.</string>

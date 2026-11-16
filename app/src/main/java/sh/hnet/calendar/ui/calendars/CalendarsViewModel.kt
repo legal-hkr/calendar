@@ -72,10 +72,13 @@ class CalendarsViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     /** A new local calendar (SPEC §12.5), shown in the color chosen for it; the provider's change brings it onto the page. */
-    fun create(name: String, color: CalendarColor) {
+    fun create(name: String, color: CalendarColor, onCreated: () -> Unit = {}) {
         viewModelScope.launch {
             try {
-                app.localCalendars.create(name, color)?.let { choices.setColor(it, color) }
+                app.localCalendars.create(name, color)?.let {
+                    choices.setColor(it, color)
+                    onCreated()
+                }
             } catch (_: Exception) {
                 // Access gone or the provider refused: the list shows that there is no such calendar
             }

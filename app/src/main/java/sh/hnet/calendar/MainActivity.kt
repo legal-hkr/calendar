@@ -1,6 +1,7 @@
 package sh.hnet.calendar
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,15 +16,15 @@ import sh.hnet.calendar.ui.CalendarApp
 import sh.hnet.calendar.ui.theme.CalendarTheme
 
 class MainActivity : ComponentActivity() {
-    /** The event a tapped reminder asks for, until the app has opened its page. */
-    private var asked by mutableStateOf<Screen.Event?>(null)
+    /** What the app was started for – the event of a tapped reminder, a file to import –, until it has opened that page. */
+    private var asked by mutableStateOf<Screen?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) {
             WhatsNew.recordStart(this)
-            asked = event(intent)
+            asked = event(intent) ?: file(intent)
         }
         setContent {
             CalendarTheme { CalendarApp(asked, onOpened = { asked = null }) }
@@ -32,7 +33,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        event(intent)?.let { asked = it }
+        (event(intent) ?: file(intent))?.let { asked = it }
+    }
+
+    /** A calendar file opened with the app or shared to it (SPEC §13.1). The permission to read it lasts as long as this activity. */
+    private fun file(intent: Intent?): Screen.Import? {
+        val uri = when (intent?.action) {
+            Intent.ACTION_VIEW -> intent.data
+            Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            else -> null
+        } ?: return null
+        return Screen.Import(uri.toString(), System.nanoTime())
     }
 
     /** The occurrence a reminder's notification names (SPEC §14.3). */

@@ -3,6 +3,7 @@ package sh.hnet.calendar
 import android.app.Application
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import sh.hnet.calendar.backup.BackupManager
 import sh.hnet.calendar.data.CalendarChoiceStore
 import sh.hnet.calendar.data.CalendarSource
@@ -35,6 +36,9 @@ class CalendarApplication : Application() {
 
     /** Backup and restore of the settings and the calendars' colors. */
     val backup: BackupManager by lazy { BackupManager(this, getSharedPreferences("stamps", MODE_PRIVATE)) }
+
+    /** A day the main screen is asked to show in Day – after an import of several events (SPEC §13.9); taken once. */
+    val goTo = MutableStateFlow<Int?>(null)
 
     /** Works out and posts the reminders of events. */
     val reminders: ReminderScheduler by lazy { ReminderScheduler(this) }

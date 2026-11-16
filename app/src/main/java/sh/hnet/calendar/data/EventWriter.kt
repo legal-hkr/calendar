@@ -13,10 +13,14 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import sh.hnet.calendar.model.Answer
 import sh.hnet.calendar.model.EventDraft
+import sh.hnet.calendar.model.EventStatus
+import sh.hnet.calendar.model.IcsEvent
+import sh.hnet.calendar.model.ReminderTimes
 import sh.hnet.calendar.model.Recurrence
 import sh.hnet.calendar.model.Repetition
 import sh.hnet.calendar.model.RuleEnd
@@ -36,6 +40,9 @@ class EventWriter(private val context: Context) {
          * to the rule by itself ("weekly on Wednesday" put on a Thursday). A change of the rule is
          * not for one occurrence alone, so then "Only this event" is not offered.
          */
+        /** Ends the ids the app gives its own events. */
+        const val UID_SUFFIX = "@sh.hnet.calendar"
+
         fun repetitionEdited(original: EventDraft, draft: EventDraft): Boolean =
             draft.repetition != original.repetition.movedTo(original.start.toLocalDate(), draft.start.toLocalDate())
     }
@@ -93,9 +100,59 @@ class EventWriter(private val context: Context) {
         val values = values(draft, null, repeating = rule != null)
         values.put(Events.CALENDAR_ID, draft.calendarId)
         if (rule != null) values.put(Events.RRULE, rule)
+        // Its id in files: an export writes it, and an import knows the event again by it
+        values.put(Events.UID_2445, UUID.randomUUID().toString() + UID_SUFFIX)
         val id = ContentUris.parseId(requireNotNull(resolver.insert(Events.CONTENT_URI, values)) { "The provider refused the event" })
         setReminders(id, draft.reminders, replace = false)
         id
+    }
+
+    /**
+     * Writes a file's events ([sh.hnet.calendar.model.IcsImport.prepare]d) to the calendar
+     * [calendarId] (SPEC §13), each with the reminders [reminders] gives it. An event the provider
+     * refuses – a rule it can't read – is left out. The ids of the events written, in the order given.
+     */
+    suspend fun import(calendarId: Long, events: List<IcsEvent>, phone: ZoneId, reminders: (IcsEvent) -> List<Int>): List<Long> = withContext(Dispatchers.IO) {
+        val ids = ArrayList<Long>()
+        for (event in events) {
+            val values = ContentValues().apply {
+                put(Events.CALENDAR_ID, calendarId)
+                put(Events.TITLE, event.title)
+                put(Events.EVENT_LOCATION, event.location)
+                put(Events.DESCRIPTION, event.description)
+                put(Events.DTSTART, event.start)
+                put(Events.ALL_DAY, if (event.allDay) 1 else 0)
+                put(Events.EVENT_TIMEZONE, if (event.allDay) "UTC" else event.zone ?: phone.id)
+                if (event.rrule != null) {
+                    put(Events.RRULE, event.rrule)
+                    put(Events.DURATION, event.duration ?: if (event.allDay) "P1D" else "PT0S")
+                    Recurrence.exdate(event.exdates, event.allDay)?.let { put(Events.EXDATE, it) }
+                } else {
+                    put(Events.DTEND, event.end ?: event.start)
+                }
+                put(Events.AVAILABILITY, if (event.busy) Events.AVAILABILITY_BUSY else Events.AVAILABILITY_FREE)
+                if (event.private) put(Events.ACCESS_LEVEL, Events.ACCESS_PRIVATE)
+                when (event.status) {
+                    EventStatus.CANCELED -> put(Events.STATUS, Events.STATUS_CANCELED)
+                    EventStatus.TENTATIVE -> put(Events.STATUS, Events.STATUS_TENTATIVE)
+                    EventStatus.CONFIRMED -> Unit
+                }
+                if (event.uid.isNotEmpty()) put(Events.UID_2445, event.uid)
+            }
+            val id = try {
+                resolver.insert(Events.CONTENT_URI, values)?.let(ContentUris::parseId)
+            } catch (_: IllegalArgumentException) {
+                null
+            } ?: continue
+            setReminders(id, reminders(event).distinct().sorted().take(ReminderTimes.MAX), replace = false)
+            ids += id
+        }
+        ids
+    }
+
+    /** Takes a whole import back (SPEC §13.7): the events with [ids] are deleted. */
+    suspend fun deleteAll(ids: List<Long>) = withContext(Dispatchers.IO) {
+        for (id in ids) resolver.delete(ContentUris.withAppendedId(Events.CONTENT_URI, id), null, null)
     }
 
     /** The reminders of [eventId] are [minutes] before the start, as alerts. */

@@ -1,6 +1,10 @@
 package sh.hnet.calendar.ui.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import sh.hnet.calendar.ui.importing.ICS_MIME_TYPES
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import sh.hnet.calendar.BuildConfig
@@ -12,14 +16,15 @@ import sh.hnet.calendar.ui.components.SettingsPage
 /**
  * The Settings root, a page over the calendar. Grouped as Music's, Clock's, News's and Calculator's: App
  * (language), Data (backup and restore, reset) and About on its own, after the app's own groups: View, Events and
- * Reminders, then Calendars; Import from a file joins with its stage.
+ * Reminders, then Calendars and Import from a file.
  */
 @Composable
-fun SettingsRootScreen(onBack: () -> Unit, onOpenCalendars: () -> Unit, onOpenView: () -> Unit, onOpenEvents: () -> Unit, onOpenReminders: () -> Unit, onOpenBackup: () -> Unit, onOpenLanguage: () -> Unit, onOpenReset: () -> Unit, onOpenAbout: () -> Unit) {
+fun SettingsRootScreen(onBack: () -> Unit, onOpenCalendars: () -> Unit, onOpenView: () -> Unit, onOpenEvents: () -> Unit, onOpenReminders: () -> Unit, onImport: (Uri) -> Unit, onOpenBackup: () -> Unit, onOpenLanguage: () -> Unit, onOpenReset: () -> Unit, onOpenAbout: () -> Unit) {
     val context = LocalContext.current
     val version = BuildConfig.VERSION_NAME.removePrefix("v")
     // Read on every composition: changing it recreates the activity anyway
     val language = appLanguages.firstOrNull { it.tag == currentLanguageTag(context) } ?: appLanguages.first()
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? -> uri?.let(onImport) }
     SettingsPage(title = stringResource(R.string.title_settings), onBack = onBack) {
         SettingsGroup {
             row { shapes ->
@@ -35,6 +40,10 @@ fun SettingsRootScreen(onBack: () -> Unit, onOpenCalendars: () -> Unit, onOpenVi
         SettingsGroup {
             row { shapes ->
                 SettingsNavigationRow(shapes, R.drawable.ic_calendar_month, stringResource(R.string.title_calendars), onClick = onOpenCalendars)
+            }
+            // Opens the system's file picker (SPEC §16.1); the file's page follows
+            row { shapes ->
+                SettingsNavigationRow(shapes, R.drawable.ic_file_open, stringResource(R.string.label_settings_import), onClick = { picker.launch(ICS_MIME_TYPES) })
             }
         }
         SettingsGroup(stringResource(R.string.title_settings_group_app)) {

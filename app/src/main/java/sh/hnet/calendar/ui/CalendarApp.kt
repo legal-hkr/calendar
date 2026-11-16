@@ -53,6 +53,7 @@ import sh.hnet.calendar.ui.components.CalendarAccess
 import sh.hnet.calendar.ui.components.ErrorDetails
 import sh.hnet.calendar.ui.components.ErrorDetailsDialog
 import sh.hnet.calendar.ui.event.EditorScreen
+import sh.hnet.calendar.ui.importing.ImportScreen
 import sh.hnet.calendar.ui.event.EventScreen
 import sh.hnet.calendar.ui.settings.AboutScreen
 import sh.hnet.calendar.ui.settings.AppLicenseScreen
@@ -76,7 +77,7 @@ import sh.hnet.calendar.ui.welcome.RemindersScreen
  * open over it as pages, with Back. On the first start the page asking for calendar access lies over it all.
  */
 @Composable
-fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
+fun CalendarApp(asked: Screen? = null, onOpened: () -> Unit = {}) {
     val context = LocalContext.current
     val stack = rememberNavBackStack(Screen.Calendar)
     val snackbars = remember { SnackbarHostState() }
@@ -96,7 +97,7 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
     }
 
     val app = appContext as CalendarApplication
-    // A tapped reminder: its event's page over the calendar, whatever was open
+    // A tapped reminder, or a file handed over by another app: its page over the calendar, whatever was open
     LaunchedEffect(asked) {
         if (asked != null) {
             while (stack.size > 1) stack.removeAt(stack.lastIndex)
@@ -152,6 +153,9 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
                             onOpenSettings = { open(Screen.Settings) },
                         )
                     }
+                    entry<Screen.Import> { import ->
+                        ImportScreen(import, snackbars, messages, onClose = { while (stack.lastOrNull() is Screen.Import) back() }, onOpenEvent = { open(it) })
+                    }
                     entry<Screen.Search> { SearchScreen(onBack = back, onOpenEvent = { open(Screen.Event(it.eventId, it.begin, it.end)) }) }
                     entry<Screen.Event> { event ->
                         EventScreen(
@@ -203,6 +207,7 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
                             onOpenEvents = { open(Screen.SettingsEvents) },
                             onOpenReminders = { open(Screen.SettingsReminders) },
                             onOpenLanguage = { open(Screen.SettingsLanguage) },
+                            onImport = { open(Screen.Import(it.toString(), System.nanoTime())) },
                             onOpenBackup = { open(Screen.SettingsBackup) },
                             onOpenReset = { open(Screen.SettingsReset) },
                             onOpenAbout = { open(Screen.SettingsAbout) },

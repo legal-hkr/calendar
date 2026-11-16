@@ -39,6 +39,7 @@ import androidx.compose.material3.rememberDatePickerState
 import sh.hnet.calendar.ui.calendars.CalendarsViewModel
 import sh.hnet.calendar.ui.calendars.CreateCalendarDialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -167,6 +168,10 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
     var picking by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
 
+    // Asked from elsewhere to show a day – after an import of several events (SPEC §13.9)
+    val app = LocalContext.current.applicationContext as CalendarApplication
+    val asked by app.goTo.collectAsStateWithLifecycle()
+
     /** [place]: Week and Day choose where their hours open; without it they stay as they are when one changes into the other. */
     fun show(next: CalendarView, day: Int, place: Boolean = true) {
         if (next.hours && (place || !view.hours)) hours.scroll.intValue = -1
@@ -195,6 +200,13 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
     BackHandler(enabled = history.isNotEmpty()) {
         val last = history.removeAt(history.lastIndex)
         show(CalendarView.entries[(last % STEP_VIEWS).toInt()], (last / STEP_VIEWS).toInt(), place = false)
+    }
+
+    LaunchedEffect(asked) {
+        asked?.let {
+            app.goTo.value = null
+            open(CalendarView.DAY, it)
+        }
     }
 
     val period = when (view) {

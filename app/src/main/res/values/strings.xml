@@ -373,6 +373,33 @@
     <string name="button_restore_backup">Restore from a backup</string>
     <string name="button_skip">Skip</string>
 
+    <!-- Import from a file -->
+    <string name="label_settings_import">Import from a file</string>
+    <string name="title_import">Import from a file</string>
+    <string name="label_file"><![CDATA[File: <b>%s</b>]]></string>
+    <string name="label_file_events"><![CDATA[File: <b>%1$s</b> (%2$s)]]></string>
+    <plurals name="label_events_count">
+        <item quantity="one">%d event</item>
+        <item quantity="other">%d events</item>
+    </plurals>
+    <string name="button_add_to_calendar">Add to calendar</string>
+    <string name="label_reminders_default">Default: %s</string>
+    <string name="label_reminders_usual">Default</string>
+    <string name="label_reminders_none">None</string>
+    <string name="label_reminders_from_file">From the file</string>
+    <string name="label_select_all">All</string>
+    <string name="label_selected_of">Selected: %1$d of %2$d</string>
+    <string name="msg_event_added">Event added</string>
+    <string name="msg_events_added">Events added: %d</string>
+    <string name="error_import_nothing_added">No event could be added.</string>
+    <string name="error_import_unreadable_title">The file can’t be read</string>
+    <string name="error_import_unreadable">It isn’t a valid ICS file or it is damaged. Download it again or choose another one.</string>
+    <string name="error_import_no_events_title">No events in the file</string>
+    <string name="error_import_no_events">The file contains only tasks or availability information. Calendar imports only events.</string>
+    <string name="error_import_no_calendar_title">No calendar to add events to</string>
+    <string name="error_import_no_calendar">All calendars on this phone are read-only. Create a local calendar to import events.</string>
+    <string name="button_choose_another_file">Choose another file</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>
     <string name="msg_wizard_access_1">Calendar shows and changes the events saved on this phone. Without access it can’t show any of them.</string>

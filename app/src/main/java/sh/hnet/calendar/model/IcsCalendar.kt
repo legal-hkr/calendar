@@ -169,3 +169,32 @@ object IcsCalendar {
         }
     }
 }
+
+/** Getting a file's events ready for the calendar (SPEC §13; the logic agreed with the owner, 16 Nov 2026). */
+object IcsImport {
+    /**
+     * The events as they are written to the provider. An occurrence of a series that the file
+     * changed on its own becomes an event of its own, and the series leaves that occurrence out –
+     * as "only this" does for a series the account's app has not sent on yet, which every imported
+     * one is at first. A canceled occurrence is only left out. An occurrence whose series the file
+     * doesn't have stands alone.
+     */
+    fun prepare(events: List<IcsEvent>): List<IcsEvent> {
+        val series = events.filter { it.originalUid == null && it.rrule != null && it.uid.isNotEmpty() }.associateBy { it.uid }
+        val taken = HashMap<String, MutableList<Long>>()
+        val result = ArrayList<IcsEvent>()
+        for (event in events) {
+            val original = event.originalUid
+            if (original == null) continue
+            val known = series.containsKey(original)
+            if (known && event.originalStart != null) taken.getOrPut(original) { mutableListOf() } += event.originalStart
+            // The id is the series': two events may not share it
+            if (!(known && event.status == EventStatus.CANCELED)) result += event.copy(uid = "", originalUid = null, originalStart = null)
+        }
+        for (event in events) {
+            if (event.originalUid != null) continue
+            result += taken[event.uid]?.takeIf { event.rrule != null }?.let { event.copy(exdates = (event.exdates + it).distinct().sorted()) } ?: event
+        }
+        return result.sortedBy { it.start }
+    }
+}

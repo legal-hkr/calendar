@@ -17,6 +17,8 @@ sealed interface Screen : NavKey {
      */
     @Serializable data class Editor(val eventId: Long = 0, val begin: Long = 0, val end: Long = 0, val day: Int = 0, val minute: Int = -1, val copy: Boolean = false, val session: Long = 0) : Screen
     @Serializable data object Search : Screen
+    /** The import of the file at [uri] (SPEC §13); [session] tells one opening from the next. */
+    @Serializable data class Import(val uri: String, val session: Long) : Screen
     @Serializable data object Settings : Screen
     @Serializable data object Calendars : Screen
     /** A calendar that lives only on the phone, by its id in the provider. */

@@ -63,7 +63,8 @@ data class Rule(
     fun movedTo(from: LocalDate, to: LocalDate): Rule = when {
         from == to -> this
         frequency == Frequency.WEEKLY && from.dayOfWeek in weekdays -> copy(weekdays = weekdays - from.dayOfWeek + to.dayOfWeek)
-        frequency == Frequency.MONTHLY && nth != null -> copy(nth = if (nth == -1 && isLast(to)) -1 else ordinal(to))
+        // A fifth weekday of a month is its last: no rule of the editor says "the fifth", which most months lack
+        frequency == Frequency.MONTHLY && nth != null -> copy(nth = if ((nth == -1 && isLast(to)) || ordinal(to) > 4) -1 else ordinal(to))
         else -> this
     }
 

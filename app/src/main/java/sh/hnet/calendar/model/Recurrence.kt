@@ -29,10 +29,11 @@ object Recurrence {
     private fun join(parts: Map<String, String>): String = parts.entries.joinToString(";") { "${it.key}=${it.value}" }
 
     /** [rule] ending just before the occurrence that starts at [millis]: "this and following" leaves the earlier ones to the old series. */
-    fun endingBefore(rule: String, millis: Long): String {
+    fun endingBefore(rule: String, millis: Long, allDay: Boolean = false): String {
         val parts = parts(rule)
         parts.remove("COUNT")
-        parts["UNTIL"] = UNTIL.format(Instant.ofEpochMilli(millis - 1000))
+        // An all-day series is counted in dates: its end is the day before, not a moment of UTC that is another day elsewhere
+        parts["UNTIL"] = if (allDay) DATE.format(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).minusDays(1)) else UNTIL.format(Instant.ofEpochMilli(millis - 1000))
         return join(parts)
     }
 
@@ -46,8 +47,8 @@ object Recurrence {
 
     /**
      * [rule] after the series was moved from the day [from] to the day [to]: a weekly rule gets the
-     * new weekday in place of the old one, a rule that names just that day of the month or date
-     * follows the move; a richer one stands as it is.
+     * new weekday in place of the old one, a rule that names just that day of the month, that
+     * weekday of the month or that date follows the move; a richer one stands as it is.
      */
     fun moved(rule: String, from: LocalDate, to: LocalDate): String {
         if (from == to) return rule
@@ -63,7 +64,16 @@ object Recurrence {
                 val new = code(to.dayOfWeek)
                 if (old != new && old in days) parts["BYDAY"] = days.map { if (it == old) new else it }.distinct().sortedBy { DAYS.indexOf(it) }.joinToString(",")
             }
-            "MONTHLY" -> if (day == null && monthDay == from.dayOfMonth.toString()) parts["BYMONTHDAY"] = to.dayOfMonth.toString()
+            "MONTHLY" -> when {
+                day == null && monthDay == from.dayOfMonth.toString() -> parts["BYMONTHDAY"] = to.dayOfMonth.toString()
+                // "The third Wednesday" becomes what the new day is, as [Rule.movedTo] has it – the two must agree, the form shows the one and this is saved
+                day != null && monthDay == null && parts["BYSETPOS"] == null -> {
+                    val last = day.uppercase() == "-1" + code(from.dayOfWeek)
+                    if (last || day.uppercase() == Rule.ordinal(from).toString() + code(from.dayOfWeek)) {
+                        parts["BYDAY"] = (if ((last && Rule.isLast(to)) || Rule.ordinal(to) > 4) "-1" else Rule.ordinal(to).toString()) + code(to.dayOfWeek)
+                    }
+                }
+            }
             "YEARLY" -> if (day == null) {
                 if (monthDay == from.dayOfMonth.toString()) parts["BYMONTHDAY"] = to.dayOfMonth.toString()
                 if (month == from.monthValue.toString()) parts["BYMONTH"] = to.monthValue.toString()

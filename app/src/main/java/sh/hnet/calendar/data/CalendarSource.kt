@@ -169,8 +169,10 @@ class CalendarSource(private val context: Context) {
      */
     suspend fun byUid(uids: Set<String>): Map<String, StoredEvent> = withContext(Dispatchers.IO) {
         if (uids.isEmpty()) return@withContext emptyMap()
-        resolver.storedEvents("${Events.DELETED} = 0 AND ${Events.UID_2445} IS NOT NULL AND ${Events.ORIGINAL_ID} IS NULL", null)
-            .filter { it.event.uid in uids }.groupBy { it.event.uid }.mapValues { it.value.first() }
+        // The provider is asked for these ids alone – a sync app gives every event one, so "all with an id" is every event there is
+        uids.chunked(UID_CHUNK).flatMap { chunk ->
+            resolver.storedEvents("${Events.DELETED} = 0 AND ${Events.ORIGINAL_ID} IS NULL AND ${Events.UID_2445} IN (${chunk.joinToString(",") { "?" }})", chunk.toTypedArray())
+        }.groupBy { it.event.uid }.mapValues { it.value.first() }
     }
 
     /**
@@ -289,6 +291,8 @@ class CalendarSource(private val context: Context) {
 
     private companion object {
         const val DAY_MILLIS = 86_400_000L
+        /** How many ids go into one question to the provider; SQLite takes 999 values at most. */
+        const val UID_CHUNK = 400
         /** No reminder is looked for further ahead than a year, in minutes. */
         const val REMINDER_REACH = 366 * 24 * 60
     }

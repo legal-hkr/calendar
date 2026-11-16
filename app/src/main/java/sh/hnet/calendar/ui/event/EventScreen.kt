@@ -46,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -118,7 +119,11 @@ fun EventScreen(
     onDelete: (EventDelete) -> Unit,
     viewModel: EventViewModel = viewModel(key = "event/$eventId/$begin"),
 ) {
-    LaunchedEffect(eventId, begin, end) { viewModel.show(eventId, begin, end) }
+    // Read while the page is there, and no longer: see [EventViewModel.hide]
+    DisposableEffect(eventId, begin, end) {
+        viewModel.show(eventId, begin, end)
+        onDispose { viewModel.hide() }
+    }
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Deleted underneath, here or by a sync: there is nothing left to show
     LaunchedEffect(state) { if (state == EventState.Gone) onBack() }

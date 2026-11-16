@@ -116,8 +116,8 @@ class EventDraftTest {
         assertEquals("FREQ=WEEKLY;BYDAY=TH", moved.rrule)
         // A change of the time alone leaves it
         assertEquals(draft.repetition, draft.withStartTime(LocalTime.of(9, 0)).repetition)
-        assertEquals(null, draft.copy(repetition = Repetition.None).rrule)
-        assertEquals("FREQ=HOURLY", draft.copy(repetition = Repetition.Other("FREQ=HOURLY")).withStartDate(LocalDate.of(2026, 11, 19)).rrule)
+        assertEquals(null, draft.withRepetition(Repetition.None).rrule)
+        assertEquals("FREQ=HOURLY", draft.withRepetition(Repetition.Other("FREQ=HOURLY")).withStartDate(LocalDate.of(2026, 11, 19)).rrule)
     }
 
     @Test
@@ -144,5 +144,25 @@ class EventDraftTest {
         assertEquals(listOf(15), allDay.withAllDay(false).reminders)
         // Nothing changes when the switch stays where it is
         assertEquals(listOf(5, 60), draft.copy(reminders = listOf(5, 60)).withAllDay(false).reminders)
+    }
+
+    @Test
+    fun goingToAnotherDayAndBackLeavesTheRule() {
+        // Monday, Wednesday and Friday, opened on Monday the 16th
+        val monday = LocalDateTime.of(2026, 11, 16, 13, 0)
+        val days = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY)
+        val draft = EventDraft(calendarId = 1, start = monday, end = monday.plusHours(2), zone = "Europe/Warsaw", repetition = Repetition.Simple(Rule(Frequency.WEEKLY, weekdays = days)))
+        // Onto Wednesday the two days are one; back on Monday all three are there again
+        val away = draft.withStartDate(LocalDate.of(2026, 11, 18))
+        assertEquals("FREQ=WEEKLY;BYDAY=WE,FR", away.rrule)
+        assertEquals(draft, away.withStartDate(LocalDate.of(2026, 11, 16)))
+        // "The last Wednesday" over the fourth Thursday and back
+        val last = LocalDateTime.of(2026, 11, 25, 9, 0)
+        val monthly = EventDraft(calendarId = 1, start = last, end = last.plusHours(1), zone = "Europe/Warsaw", repetition = Repetition.Simple(Rule(Frequency.MONTHLY, nth = -1)))
+        assertEquals(monthly, monthly.withStartDate(LocalDate.of(2026, 11, 19)).withStartDate(LocalDate.of(2026, 11, 25)))
+        // A rule set by hand is the new point to count from
+        val set = draft.withStartDate(LocalDate.of(2026, 11, 18)).withRepetition(Repetition.Simple(Rule(Frequency.WEEKLY, weekdays = setOf(DayOfWeek.WEDNESDAY))))
+        assertEquals("FREQ=WEEKLY;BYDAY=TH", set.withStartDate(LocalDate.of(2026, 11, 19)).rrule)
+        assertEquals("FREQ=WEEKLY;BYDAY=WE", set.withStartDate(LocalDate.of(2026, 11, 19)).withStartDate(LocalDate.of(2026, 11, 18)).rrule)
     }
 }

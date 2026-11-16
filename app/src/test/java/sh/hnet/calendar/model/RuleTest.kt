@@ -117,4 +117,13 @@ class RuleTest {
         assertEquals(1 to 0, ReminderTimes.allDayParts(1440))
         assertEquals(2340, ReminderTimes.allDay(2))
     }
+
+    @Test
+    fun aFifthWeekdayIsTheLast() {
+        // The third Tuesday put on December 29, 2026, the fifth Tuesday: no month is asked for a fifth one
+        val moved = Rule(Frequency.MONTHLY, nth = 3).movedTo(LocalDate.of(2026, 12, 15), LocalDate.of(2026, 12, 29))
+        assertEquals(-1, moved.nth)
+        assertEquals("FREQ=MONTHLY;BYDAY=-1TU", moved.toRRule(LocalDateTime.of(2026, 12, 29, 9, 0), warsaw, false))
+        assertEquals(moved, Rule.parse("FREQ=MONTHLY;BYDAY=-1TU", LocalDate.of(2026, 12, 29), warsaw))
+    }
 }

@@ -32,6 +32,8 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<EventState> = _state
     private var watching: Job? = null
     private var shown: Triple<Long, Long, Long>? = null
+    /** The occurrence the state is of, also while the page is away. */
+    private var last: Triple<Long, Long, Long>? = null
 
     /** The answer to the invitation, saved at once (SPEC §9.3); the provider's change brings the page up to date. */
     fun answer(eventId: Long, answer: Answer, onSaved: () -> Unit) {
@@ -45,12 +47,25 @@ class EventViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * The page has left the screen. The view model is kept by the activity, one per event that was
+     * opened, so without this each of them would go on reading its event at every change of the
+     * calendar for as long as the app runs.
+     */
+    fun hide() {
+        watching?.cancel()
+        watching = null
+        shown = null
+    }
+
     /** The page shows the occurrence of [eventId] from [begin] to [end]. */
     fun show(eventId: Long, begin: Long, end: Long) {
         val key = Triple(eventId, begin, end)
         if (key == shown) return
         shown = key
-        _state.value = EventState.Loading
+        // Back on a page that was read before – from the editor, say –, what it showed stands until it is read again
+        if (key != last) _state.value = EventState.Loading
+        last = key
         watching?.cancel()
         if (!source.hasAccess()) {
             _state.value = EventState.Gone

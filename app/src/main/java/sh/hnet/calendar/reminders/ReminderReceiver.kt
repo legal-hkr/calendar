@@ -73,8 +73,10 @@ class ChangeJob : JobService() {
                 app.reminders.sync()
             } catch (_: Exception) {
             } finally {
+                // Set again before this run is given back, as the platform's own sample does: a job that is still
+                // running counts as waiting, so [ensure] would leave it be and the next change would wake nobody
+                schedule(app)
                 jobFinished(params, false)
-                ensure(app)
             }
         }
         return true
@@ -87,8 +89,11 @@ class ChangeJob : JobService() {
 
         /** Sets the job unless it is waiting already. */
         fun ensure(context: Context) {
+            if (context.getSystemService(JobScheduler::class.java).getPendingJob(ID) == null) schedule(context)
+        }
+
+        private fun schedule(context: Context) {
             val scheduler = context.getSystemService(JobScheduler::class.java)
-            if (scheduler.getPendingJob(ID) != null) return
             val job = JobInfo.Builder(ID, ComponentName(context, ChangeJob::class.java))
                 .addTriggerContentUri(JobInfo.TriggerContentUri(CalendarContract.CONTENT_URI, JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS))
                 // A sync writes many rows: wait for it to settle, but not longer than ten seconds

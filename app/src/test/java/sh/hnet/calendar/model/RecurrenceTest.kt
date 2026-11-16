@@ -40,7 +40,9 @@ class RecurrenceTest {
     fun aRicherRuleStands() {
         val wednesday = LocalDate.of(2026, 11, 18)
         val thursday = wednesday.plusDays(1)
-        assertEquals("FREQ=MONTHLY;BYDAY=3WE", Recurrence.moved("FREQ=MONTHLY;BYDAY=3WE", wednesday, thursday))
+        // Several days of the month, or a weekday that is not the start's, are not the editor's to move
+        assertEquals("FREQ=MONTHLY;BYMONTHDAY=1,15", Recurrence.moved("FREQ=MONTHLY;BYMONTHDAY=1,15", wednesday, thursday))
+        assertEquals("FREQ=MONTHLY;BYDAY=2FR", Recurrence.moved("FREQ=MONTHLY;BYDAY=2FR", wednesday, thursday))
         assertEquals("FREQ=WEEKLY;BYDAY=WE", Recurrence.moved("FREQ=WEEKLY;BYDAY=WE", wednesday, wednesday))
     }
 
@@ -73,5 +75,30 @@ class RecurrenceTest {
         assertEquals("20261120T070000Z,20261122T070000Z", Recurrence.exdate(listOf(second, first, second), allDay = false))
         assertEquals("20261120", Recurrence.exdate(listOf(Instant.parse("2026-11-20T00:00:00Z").toEpochMilli()), allDay = true))
         assertEquals(null, Recurrence.exdate(emptyList(), allDay = false))
+    }
+
+    @Test
+    fun aWeekdayOfTheMonthFollowsTheMoveAsTheEditorShowsIt() {
+        // The third Wednesday of November 2026 put on the third Thursday, and on the fourth
+        val wednesday = LocalDate.of(2026, 11, 18)
+        assertEquals("FREQ=MONTHLY;BYDAY=3TH", Recurrence.moved("FREQ=MONTHLY;BYDAY=3WE", wednesday, wednesday.plusDays(1)))
+        assertEquals("FREQ=MONTHLY;BYDAY=4TH", Recurrence.moved("FREQ=MONTHLY;BYDAY=3WE", wednesday, LocalDate.of(2026, 11, 26)))
+        // "The last" stays the last on a last weekday, and a fifth weekday is the last one
+        assertEquals("FREQ=MONTHLY;BYDAY=-1TH", Recurrence.moved("FREQ=MONTHLY;BYDAY=-1WE", LocalDate.of(2026, 11, 25), LocalDate.of(2026, 11, 26)))
+        assertEquals("FREQ=MONTHLY;BYDAY=-1TU", Recurrence.moved("FREQ=MONTHLY;BYDAY=3WE", LocalDate.of(2026, 12, 16), LocalDate.of(2026, 12, 29)))
+        // What the form shows and what is saved are the same rule
+        for ((from, to) in listOf(wednesday to wednesday.plusDays(1), LocalDate.of(2026, 12, 16) to LocalDate.of(2026, 12, 29), LocalDate.of(2026, 11, 25) to LocalDate.of(2026, 12, 2))) {
+            val rule = Rule(Frequency.MONTHLY, nth = if (Rule.isLast(from) && from.dayOfMonth > 21 && from == LocalDate.of(2026, 11, 25)) -1 else Rule.ordinal(from))
+            val stored = rule.toRRule(from.atTime(9, 0), java.time.ZoneId.of("Europe/Warsaw"), false)
+            assertEquals(rule.movedTo(from, to).toRRule(to.atTime(9, 0), java.time.ZoneId.of("Europe/Warsaw"), false), Recurrence.moved(stored, from, to))
+        }
+    }
+
+    @Test
+    fun anAllDaySeriesEndsOnADate() {
+        // From November 20 on: the old series ends on the 19th, whatever zone reads it
+        val split = Instant.parse("2026-11-20T00:00:00Z").toEpochMilli()
+        assertEquals("FREQ=DAILY;UNTIL=20261119", Recurrence.endingBefore("FREQ=DAILY;COUNT=30", split, allDay = true))
+        assertEquals(RuleEnd.Until(LocalDate.of(2026, 11, 19)), Rule.parse("FREQ=DAILY;UNTIL=20261119", LocalDate.of(2026, 11, 16), java.time.ZoneId.of("Europe/Warsaw"))?.end)
     }
 }

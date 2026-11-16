@@ -31,6 +31,13 @@ data class EventDraft(
     val repetition: Repetition = Repetition.None,
     /** Minutes before the start, see [ReminderTimes]. */
     val reminders: List<Int> = emptyList(),
+    /**
+     * The repetition as it was set, and the day the event started on then: [repetition] is this
+     * one moved from that day to the start's. Counted from here on every move of the start, so
+     * that going to another day and back leaves the rule as it was.
+     */
+    val setRepetition: Repetition = repetition,
+    val setOn: LocalDate = start.toLocalDate(),
 ) {
     /** Moving the start keeps the length (SPEC §10.4). */
     fun withStartDate(date: LocalDate): EventDraft = moveStart(LocalDateTime.of(date, start.toLocalTime()))
@@ -39,7 +46,7 @@ data class EventDraft(
 
     /** The repetition follows the day: "weekly on Wednesday" put on a Thursday repeats on Thursdays. */
     private fun moveStart(to: LocalDateTime): EventDraft =
-        copy(start = to, end = to.plus(Duration.between(start, end)), repetition = repetition.movedTo(start.toLocalDate(), to.toLocalDate()))
+        copy(start = to, end = to.plus(Duration.between(start, end)), repetition = setRepetition.movedTo(setOn, to.toLocalDate()))
 
     /** The end is never before the start (SPEC §10.4): an earlier one becomes the start itself. */
     fun withEndDate(date: LocalDate): EventDraft {
@@ -63,11 +70,11 @@ data class EventDraft(
      * moves the start to the first day it names: the start is always an occurrence.
      */
     fun withRepetition(value: Repetition): EventDraft {
-        val rule = (value as? Repetition.Simple)?.rule ?: return copy(repetition = value)
+        val rule = (value as? Repetition.Simple)?.rule ?: return copy(repetition = value, setRepetition = value, setOn = start.toLocalDate())
         val day = start.toLocalDate()
         val first = generateSequence(day) { it.plusDays(1) }.take(7).firstOrNull { rule.names(it, day) } ?: day
         val days = ChronoUnit.DAYS.between(day, first)
-        return copy(start = start.plusDays(days), end = end.plusDays(days), repetition = value)
+        return copy(start = start.plusDays(days), end = end.plusDays(days), repetition = value, setRepetition = value, setOn = first)
     }
 
     /** The rule as the provider keeps it; null for an event that doesn't repeat. */

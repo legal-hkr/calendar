@@ -385,6 +385,9 @@ class EventWriter(private val context: Context) {
         val row = row(eventId) ?: return@withContext
         val uri = ContentUris.withAppendedId(Events.CONTENT_URI, eventId)
         when {
+            // An occurrence that was changed on its own: deleting its row would bring the series' own occurrence back in its place,
+            // so the row stays as a canceled exception, which keeps that occurrence out – here and, after a sync, on the server
+            row.exception -> resolver.update(uri, ContentValues().apply { put(Events.STATUS, Events.STATUS_CANCELED) }, null, null)
             row.rule == null || scope == Scope.ALL -> resolver.delete(uri, null, null)
             scope == Scope.ONLY_THIS && !row.synced -> exclude(eventId, row, instanceBegin)
             scope == Scope.ONLY_THIS -> {
@@ -410,7 +413,7 @@ class EventWriter(private val context: Context) {
     private fun endBefore(eventId: Long, row: Row, instanceBegin: Long) {
         val rule = requireNotNull(row.rule)
         val values = ContentValues().apply {
-            put(Events.RRULE, Recurrence.endingBefore(rule, instanceBegin))
+            put(Events.RRULE, Recurrence.endingBefore(rule, instanceBegin, row.allDay))
             put(Events.DTSTART, row.start)
         }
         resolver.update(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), values, null, null)

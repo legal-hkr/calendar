@@ -119,7 +119,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         var draft = EventDraft.of(event, zone)
         if (screen.copy) {
             // A copy is the one occurrence that was opened: it does not repeat (the owner, 16 Nov 2026), but can be made to
-            draft = draft.copy(repetition = Repetition.None)
+            draft = draft.withRepetition(Repetition.None)
             // It may go anywhere; from a read-only calendar it goes to the usual one
             if (calendars.none { it.id == draft.calendarId }) draft = draft.copy(calendarId = usual.id)
         } else {

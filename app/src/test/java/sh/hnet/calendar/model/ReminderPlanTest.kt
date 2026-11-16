@@ -73,4 +73,13 @@ class ReminderPlanTest {
         assertEquals(at("2026-11-18T23:00:00Z"), ReminderPlan.endsAt(endless.copy(end = at("2026-11-18T23:00:00Z")), warsaw))
         assertEquals(emptyList<Reminder>(), ReminderPlan.due(listOf(endless), at("2026-11-18T23:00:00Z"), warsaw, emptySet()))
     }
+
+    @Test
+    fun anEventWithoutALengthIsStillRemindedOfAtItsStart() {
+        // A ticket with a start alone, reminded at the start: the alarm comes at 14:00:00 or a moment after
+        val ticket = timed(0).copy(end = at("2026-11-18T13:00:00Z"))
+        assertEquals(listOf(ticket), ReminderPlan.due(listOf(ticket), at("2026-11-18T13:00:02Z"), warsaw, emptySet()))
+        // A quarter of an hour on it counts as over
+        assertEquals(emptyList<Reminder>(), ReminderPlan.due(listOf(ticket), at("2026-11-18T13:15:00Z"), warsaw, emptySet()))
+    }
 }

@@ -25,6 +25,7 @@ data class Reminder(val eventId: Long, val begin: Long, val end: Long, val allDa
 object ReminderPlan {
     private const val MINUTE = 60_000L
     private const val DAY = 86_400_000L
+    private const val SHORTEST = 15 * MINUTE
 
     /** An instant of an event on this phone: an all-day event's midnight in UTC is the midnight of [zone]. */
     fun local(millis: Long, allDay: Boolean, zone: ZoneId): Long =
@@ -36,7 +37,9 @@ object ReminderPlan {
      * at the midnight it begins with.
      */
     fun endsAt(reminder: Reminder, zone: ZoneId): Long =
-        if (reminder.allDay) local(maxOf(reminder.end, reminder.begin + DAY), true, zone) else reminder.end
+        // A timed event counts as going on for a quarter of an hour at least: one without a length – a ticket with a start alone –
+        // would be over at the very moment its reminder "at the start" is due
+        if (reminder.allDay) local(maxOf(reminder.end, reminder.begin + DAY), true, zone) else maxOf(reminder.end, reminder.begin + SHORTEST)
 
     fun fireAt(reminder: Reminder, zone: ZoneId): Long = local(reminder.begin, reminder.allDay, zone) - reminder.minutes * MINUTE
 

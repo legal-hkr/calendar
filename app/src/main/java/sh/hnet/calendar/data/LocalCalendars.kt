@@ -90,10 +90,6 @@ class StoredEvent(val id: Long, val calendarId: Long, val event: IcsEvent)
  * stands alone.
  */
 internal fun android.content.ContentResolver.storedEvents(selection: String, arguments: Array<String>?): List<StoredEvent> {
-    val reminders = HashMap<Long, MutableList<Int>>()
-    query(Reminders.CONTENT_URI, arrayOf(Reminders.EVENT_ID, Reminders.MINUTES), null, null, null)?.use { cursor ->
-        while (cursor.moveToNext()) reminders.getOrPut(cursor.getLong(0)) { mutableListOf() } += cursor.getInt(1)
-    }
     val columns = arrayOf(
         Events._ID, Events.TITLE, Events.EVENT_LOCATION, Events.DESCRIPTION, Events.DTSTART, Events.DTEND, Events.DURATION, Events.ALL_DAY, Events.EVENT_TIMEZONE,
         Events.RRULE, Events.EXDATE, Events.STATUS, Events.AVAILABILITY, Events.ACCESS_LEVEL, Events.ORIGINAL_ID, Events.ORIGINAL_INSTANCE_TIME, Events.UID_2445, Events.CALENDAR_ID,
@@ -125,15 +121,27 @@ internal fun android.content.ContentResolver.storedEvents(selection: String, arg
                     },
                     busy = cursor.getInt(12) != Events.AVAILABILITY_FREE,
                     private = cursor.getInt(13).let { it == Events.ACCESS_PRIVATE || it == Events.ACCESS_CONFIDENTIAL },
-                    reminders = reminders[id].orEmpty(),
                     originalStart = if (cursor.isNull(15)) null else cursor.getLong(15),
                 ),
             )
         }
     }
+    // The reminders of these events: asked for by their ids when they are few, else read whole
+    val reminders = HashMap<Long, MutableList<Int>>()
+    val few = rows.size <= REMINDER_IDS
+    val own = if (few) "${Reminders.EVENT_ID} IN (${rows.joinToString(",") { it.id.toString() }})" else null
+    if (rows.isNotEmpty()) {
+        query(Reminders.CONTENT_URI, arrayOf(Reminders.EVENT_ID, Reminders.MINUTES), own, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) reminders.getOrPut(cursor.getLong(0)) { mutableListOf() } += cursor.getInt(1)
+        }
+    }
     val uids = rows.associate { it.id to it.event.uid }
     return rows.map { row ->
         val series = row.original?.let { uids[it] }
-        StoredEvent(row.id, row.calendarId, if (series != null) row.event.copy(originalUid = series) else row.event.copy(originalStart = null))
+        val event = row.event.copy(reminders = reminders[row.id].orEmpty())
+        StoredEvent(row.id, row.calendarId, if (series != null) event.copy(originalUid = series) else event.copy(originalStart = null))
     }
 }
+
+/** Up to so many events have their reminders asked for by id. */
+private const val REMINDER_IDS = 200

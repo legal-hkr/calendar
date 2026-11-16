@@ -150,17 +150,23 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 val declined = app.preferences.viewSettings.first().showDeclined
                 val past = _past.value
                 val today = JulianDay.of(LocalDate.now(ZoneId.systemDefault()))
-                var days: List<AgendaDay>
-                while (true) {
+                // A year at a time, each read once: the next one while nothing was found, up to the limit
+                val occurrences = ArrayList<Occurrence>()
+                var year = 0
+                while (year < years || (occurrences.isEmpty() && found.isNotEmpty() && year < MAX_YEARS)) {
+                    year++
                     // Upcoming: from today on; past: up to yesterday
-                    val first = if (past) today - years * YEAR else today
-                    val last = if (past) today - 1 else today + years * YEAR
-                    val occurrences = if (found.isEmpty()) emptyList() else source.occurrences(first, last, shown).filter { it.eventId in found && !app.deletes.hides(it) && (declined || !it.declined) }
-                    // No day is listed for being today: only days with something found
-                    days = Agenda.build(occurrences, first, last, today = Int.MIN_VALUE, showDeclined = true)
-                    if (days.isNotEmpty() || found.isEmpty() || years >= MAX_YEARS) break
-                    years++
+                    val first = if (past) today - year * YEAR else today + (year - 1) * YEAR + if (year > 1) 1 else 0
+                    val last = if (past) today - (year - 1) * YEAR - 1 else today + year * YEAR
+                    if (found.isNotEmpty()) occurrences += source.occurrences(first, last, shown).filter { it.eventId in found && !app.deletes.hides(it) && (declined || !it.declined) }
                 }
+                years = year
+                // An event over the turn of two years is read with both: once is enough
+                val unique = occurrences.distinctBy { it.eventId to it.begin }
+                val first = if (past) today - years * YEAR else today
+                val last = if (past) today - 1 else today + years * YEAR
+                // No day is listed for being today: only days with something found
+                val days = Agenda.build(unique, first, last, today = Int.MIN_VALUE, showDeclined = true)
                 _state.value = SearchState.Results(if (past) days.reversed() else days, calendars.associateBy { it.id }, today, System.currentTimeMillis(), years, more = found.isNotEmpty() && years < MAX_YEARS)
             } catch (_: SecurityException) {
                 _state.value = SearchState.Idle

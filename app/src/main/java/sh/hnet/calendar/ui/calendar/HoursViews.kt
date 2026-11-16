@@ -158,13 +158,13 @@ private fun CalendarState.Ready.nowMinute(): Int = Instant.ofEpochMilli(now).atZ
 
 /**
  * Where the hours open (SPEC §7.10): with today on screen an hour before now at the top, else the
- * first hour of the day (07:00 until Settings › View has it).
+ * first hour of the day set in Settings › View.
  */
 @Composable
 private fun PlaceHours(hours: HoursState, state: CalendarState.Ready, todayShown: Boolean) {
     val unplaced by remember { derivedStateOf { hours.scroll.intValue < 0 } }
     if (!unplaced) return
-    val minutes = if (todayShown) (state.nowMinute() - 60).coerceAtLeast(0) else FIRST_HOUR * 60
+    val minutes = if (todayShown) (state.nowMinute() - 60).coerceAtLeast(0) else LocalViewOptions.current.firstHour * 60
     hours.scroll.intValue = with(LocalDensity.current) { (minutes / 60f * hours.hourHeight.floatValue.dp.toPx()).roundToInt() }
 }
 
@@ -205,10 +205,10 @@ fun WeekView(
     HorizontalPager(pager, key = { it }, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize()) { page ->
         val first = weeks.first(page)
         val loaded = events.covers(first, first + 6)
-        val strip = remember(events, first) { Days.weekStrip(if (loaded) events.occurrences else emptyList(), first) }
+        val strip = remember(events, first) { Days.weekStrip(if (loaded) events.occurrences else emptyList(), first, showDeclined = true) }
         val days = remember(events, first, state.zone, hourDp) {
             List(7) { column ->
-                val segments = if (loaded) Days.segments(events.occurrences, first + column, state.zone) else emptyList()
+                val segments = if (loaded) Days.segments(events.occurrences, first + column, state.zone, showDeclined = true) else emptyList()
                 Days.layout(segments, WEEK_MIN_HEIGHT * 60f / hourDp, maxColumns = 2, moreMinutes = (MORE_HEIGHT + TILE_GAP) * 60f / hourDp)
             }
         }
@@ -272,9 +272,9 @@ fun DayView(
         HorizontalPager(pager, key = { it }, beyondViewportPageCount = 1, modifier = Modifier.fillMaxSize()) { page ->
             val day = DayPages.day(page)
             val loaded = events.covers(day, day)
-            val strip = remember(events, day) { if (loaded) Days.dayStrip(events.occurrences, day) else emptyList() }
+            val strip = remember(events, day) { if (loaded) Days.dayStrip(events.occurrences, day, showDeclined = true) else emptyList() }
             val layout = remember(events, day, state.zone, hourDp) {
-                Days.layout(if (loaded) Days.segments(events.occurrences, day, state.zone) else emptyList(), DAY_MIN_HEIGHT * 60f / hourDp)
+                Days.layout(if (loaded) Days.segments(events.occurrences, day, state.zone, showDeclined = true) else emptyList(), DAY_MIN_HEIGHT * 60f / hourDp)
             }
             Column(Modifier.fillMaxSize()) {
                 DayStrip(day, strip, state, palette, onOpenEvent)
@@ -499,21 +499,22 @@ private fun DayColumn(hours: HoursState, layout: DayLayout, modifier: Modifier =
     }
 }
 
-/** The ground of a tile in its state (SPEC §5.3): the fill, dimmed when the event is over or canceled; a dashed outline for a tentative one. */
-private fun Modifier.tileGround(colors: TileColors, outlined: Boolean, dimmed: Boolean, radius: Dp, stroke: Dp, flatStart: Boolean = false, flatEnd: Boolean = false): Modifier = drawBehind {
+/** The ground of a tile in its state (SPEC §5.3): the fill, dimmed when the event is over or canceled; a dashed outline for a tentative one, a [solid] one for a declined one. */
+private fun Modifier.tileGround(colors: TileColors, outlined: Boolean, dimmed: Boolean, radius: Dp, stroke: Dp, flatStart: Boolean = false, flatEnd: Boolean = false, solid: Boolean = false): Modifier = drawBehind {
     val inset = if (outlined) stroke.toPx() / 2 else 0f
     val corner = CornerRadius(radius.toPx())
     val start = if (flatStart) CornerRadius.Zero else corner
     val end = if (flatEnd) CornerRadius.Zero else corner
     val path = Path().apply { addRoundRect(RoundRect(inset, inset, size.width - inset, size.height - inset, start, end, end, start)) }
     if (outlined) {
-        drawPath(path, colors.outline, style = Stroke(stroke.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx()))))
+        drawPath(path, colors.outline, style = Stroke(stroke.toPx(), pathEffect = if (solid) null else PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx()))))
     } else {
         drawPath(path, if (dimmed) colors.dimmed else colors.fill)
     }
 }
 
-private fun TileColors.ink(outlined: Boolean, dimmed: Boolean): Color = if (outlined) outline else if (dimmed) text else on
+/** The text's color on a tile: a declined event's is [quiet] (SPEC §5.3). */
+private fun TileColors.ink(tile: TileState, quiet: Color): Color = if (tile.solid) quiet else if (tile.outlined) outline else if (tile.dimmed) text else on
 
 private fun colors(occurrence: Occurrence, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>): TileColors =
     palette.getValue(state.calendars[occurrence.calendarId]?.color ?: CalendarColor.GRAPHITE)
@@ -527,9 +528,10 @@ private fun colors(occurrence: Occurrence, state: CalendarState.Ready, palette: 
 private fun WeekTile(placed: PlacedSegment, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats, onOpen: (Occurrence) -> Unit) {
     val occurrence = placed.segment.occurrence
     val colors = colors(occurrence, state, palette)
-    val outlined = occurrence.tentative && !occurrence.canceled
-    val dimmed = occurrence.canceled || occurrence.isPast(state.now, state.today)
-    val titleStyle = tileTitleStyle().copy(color = colors.ink(outlined, dimmed), textDecoration = if (occurrence.canceled) TextDecoration.LineThrough else null)
+    val tile = occurrence.tileState(state.now, state.today, LocalViewOptions.current.dimPast)
+    val outlined = tile.outlined
+    val dimmed = tile.dimmed
+    val titleStyle = tileTitleStyle().copy(color = colors.ink(tile, MaterialTheme.colorScheme.onSurfaceVariant), textDecoration = if (tile.struck) TextDecoration.LineThrough else null)
     val title = occurrence.title.ifEmpty { stringResource(R.string.label_no_title) }
     val timed = placed.segment.startsHere
     Layout(
@@ -538,7 +540,7 @@ private fun WeekTile(placed: PlacedSegment, state: CalendarState.Ready, palette:
             Text(title, style = titleStyle, overflow = TextOverflow.Clip)
             Text(title, style = titleStyle, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
         },
-        modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { onOpen(occurrence) }.tileGround(colors, outlined, dimmed, radius = 4.dp, stroke = 1.dp),
+        modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { onOpen(occurrence) }.tileGround(colors, outlined, dimmed, radius = 4.dp, stroke = 1.dp, solid = tile.solid),
     ) { measurables, constraints ->
         val width = constraints.maxWidth
         val height = constraints.maxHeight
@@ -571,14 +573,16 @@ private fun WeekTile(placed: PlacedSegment, state: CalendarState.Ready, palette:
 private fun DayTile(placed: PlacedSegment, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats, onOpen: (Occurrence) -> Unit) {
     val occurrence = placed.segment.occurrence
     val colors = colors(occurrence, state, palette)
-    val outlined = occurrence.tentative && !occurrence.canceled
-    val dimmed = occurrence.canceled || occurrence.isPast(state.now, state.today)
-    val ink = colors.ink(outlined, dimmed)
-    val decoration = if (occurrence.canceled) TextDecoration.LineThrough else null
+    val tile = occurrence.tileState(state.now, state.today, LocalViewOptions.current.dimPast)
+    val outlined = tile.outlined
+    val dimmed = tile.dimmed
+    val ink = colors.ink(tile, MaterialTheme.colorScheme.onSurfaceVariant)
+    val decoration = if (tile.struck) TextDecoration.LineThrough else null
     val name = occurrence.title.ifEmpty { stringResource(R.string.label_no_title) }
     val short = placed.segment.startsHere && occurrence.end - occurrence.begin <= SHORT_MILLIS
     val supporting = when {
         occurrence.canceled -> stringResource(R.string.label_state_canceled)
+        occurrence.declined -> stringResource(R.string.label_state_declined)
         occurrence.tentative -> stringResource(R.string.label_state_tentative)
         else -> occurrence.location.lineSequence().firstOrNull().orEmpty()
     }
@@ -590,7 +594,7 @@ private fun DayTile(placed: PlacedSegment, state: CalendarState.Ready, palette: 
             )
             Text(supporting, style = MaterialTheme.typography.bodySmall, color = ink, textDecoration = decoration, maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
-        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onOpen(occurrence) }.tileGround(colors, outlined, dimmed, radius = 8.dp, stroke = 1.5.dp),
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onOpen(occurrence) }.tileGround(colors, outlined, dimmed, radius = 8.dp, stroke = 1.5.dp, solid = tile.solid),
     ) { measurables, constraints ->
         val width = constraints.maxWidth
         val height = constraints.maxHeight
@@ -621,17 +625,18 @@ private fun MoreChip(count: Int, onClick: () -> Unit) {
 @Composable
 private fun StripTile(occurrence: Occurrence, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, onOpen: (Occurrence) -> Unit, modifier: Modifier = Modifier, flatStart: Boolean = false, flatEnd: Boolean = false) {
     val colors = colors(occurrence, state, palette)
-    val outlined = occurrence.tentative && !occurrence.canceled
-    val dimmed = occurrence.canceled || occurrence.isPast(state.now, state.today)
+    val tile = occurrence.tileState(state.now, state.today, LocalViewOptions.current.dimPast)
+    val outlined = tile.outlined
+    val dimmed = tile.dimmed
     Box(
-        modifier.height(STRIP_TILE).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { onOpen(occurrence) }.tileGround(colors, outlined, dimmed, radius = 4.dp, stroke = 1.dp, flatStart = flatStart, flatEnd = flatEnd).padding(horizontal = 3.dp),
+        modifier.height(STRIP_TILE).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { onOpen(occurrence) }.tileGround(colors, outlined, dimmed, radius = 4.dp, stroke = 1.dp, flatStart = flatStart, flatEnd = flatEnd, solid = tile.solid).padding(horizontal = 3.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(
             occurrence.title.ifEmpty { stringResource(R.string.label_no_title) },
             style = tileTitleStyle(),
-            color = colors.ink(outlined, dimmed),
-            textDecoration = if (occurrence.canceled) TextDecoration.LineThrough else null,
+            color = colors.ink(tile, MaterialTheme.colorScheme.onSurfaceVariant),
+            textDecoration = if (tile.struck) TextDecoration.LineThrough else null,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Clip,
@@ -716,5 +721,3 @@ private const val TILE_GAP = 2
 /** An event this short has its time on the title's line in Day (SPEC §7.6). */
 private const val SHORT_MILLIS = 15 * 60_000L
 
-/** The first hour of the day, until Settings › View has it (SPEC §16.2). */
-private const val FIRST_HOUR = 7

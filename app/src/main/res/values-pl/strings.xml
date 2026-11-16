@@ -322,6 +322,27 @@
         <item quantity="other">%d godziny</item>
     </plurals>
 
+    <!-- Settings › View and Settings › Events -->
+    <string name="label_settings_view">Widok</string>
+    <string name="desc_settings_view">Widok startowy, tydzień, minione wydarzenia</string>
+    <string name="label_settings_events">Wydarzenia</string>
+    <string name="desc_settings_events">Domyślny kalendarz, długość, przypomnienia</string>
+    <string name="label_view_on_start">Widok po uruchomieniu</string>
+    <string name="label_view_last_used">Ostatnio używany</string>
+    <string name="label_first_day_of_week">Pierwszy dzień tygodnia</string>
+    <string name="label_first_day_system">Według systemu (%s)</string>
+    <string name="label_first_hour">Pierwsza godzina dnia</string>
+    <string name="label_week_numbers">Numery tygodni</string>
+    <string name="label_dim_past">Przygaszaj minione wydarzenia</string>
+    <string name="label_show_declined">Pokazuj odrzucone wydarzenia</string>
+    <string name="label_state_declined">Odrzucone</string>
+    <string name="label_default_calendar">Domyślny kalendarz</string>
+    <string name="label_calendar_last_used">Ostatnio używany</string>
+    <string name="label_default_length">Domyślna długość</string>
+    <string name="label_length_hour_and_half">1,5 godziny</string>
+    <string name="label_reminders_timed">Przypomnienia dla wydarzeń z godziną</string>
+    <string name="label_reminders_all_day">Przypomnienia dla wydarzeń całodniowych</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Dostęp do kalendarzy</string>
     <string name="msg_wizard_access_1">Aplikacja pokazuje i zmienia wydarzenia zapisane w telefonie. Bez dostępu nie może wyświetlić żadnego z nich.</string>

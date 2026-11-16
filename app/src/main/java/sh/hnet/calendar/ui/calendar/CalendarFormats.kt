@@ -3,6 +3,9 @@ package sh.hnet.calendar.ui.calendar
 import android.app.LocaleManager
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
+import sh.hnet.calendar.CalendarApplication
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -59,7 +62,7 @@ fun rememberCalendarFormats(zone: ZoneId): CalendarFormats {
 
 /**
  * The day weeks start with (SPEC §2.8): the one set in the system's regional preferences, else the
- * custom of the region – the system's, when the app's language names none. Settings › View gets its own choice with stage 8.
+ * custom of the region – the system's, when the app's language names none. Settings › View can name another ([rememberWeekStart]).
  */
 fun weekStart(app: Locale, system: Locale): DayOfWeek {
     val chosen = app.getUnicodeLocaleType("fw") ?: system.getUnicodeLocaleType("fw")
@@ -68,14 +71,23 @@ fun weekStart(app: Locale, system: Locale): DayOfWeek {
     return WeekFields.of(regional).firstDayOfWeek
 }
 
+/** The day weeks start with by the system and the language alone: what "System default" in Settings › View stands for. */
 @Composable
-fun rememberWeekStart(): DayOfWeek {
+fun rememberSystemWeekStart(): DayOfWeek {
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
     return remember(locale) {
         val system = context.getSystemService(LocaleManager::class.java).systemLocales
         weekStart(locale, if (system.isEmpty) locale else system[0])
     }
+}
+
+/** The day weeks start with: the one chosen in Settings › View, else the system's. */
+@Composable
+fun rememberWeekStart(): DayOfWeek {
+    val preferences = (LocalContext.current.applicationContext as CalendarApplication).preferences
+    val settings by preferences.viewSettings.collectAsStateWithLifecycle(preferences.latest)
+    return settings?.weekStart ?: rememberSystemWeekStart()
 }
 
 private val WEEKDAYS = mapOf(

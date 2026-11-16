@@ -51,10 +51,10 @@ data class EventDraft(
     fun withEndTime(time: LocalTime): EventDraft = copy(end = maxOf(LocalDateTime.of(end.toLocalDate(), time), start))
 
     /** Turning "All day" off brings the times back; an end that would lie before the start is put an hour after it. */
-    fun withAllDay(on: Boolean): EventDraft {
+    fun withAllDay(on: Boolean, usual: List<Int> = ReminderTimes.defaults(on)): EventDraft {
         if (on == allDay) return this
-        // Reminders of the one kind make no sense for the other (15 minutes before midnight), so the usual ones of the new kind take their place
-        val changed = copy(allDay = on, reminders = ReminderTimes.defaults(on))
+        // Reminders of the one kind make no sense for the other (15 minutes before midnight), so the [usual] ones of the new kind take their place
+        val changed = copy(allDay = on, reminders = usual)
         return if (on || end >= start) changed else changed.copy(end = start.plusHours(1))
     }
 
@@ -92,9 +92,9 @@ data class EventDraft(
          * A new event (SPEC §10.3): on [day], at [time] or else at the next full hour after [now],
          * [minutes] long.
          */
-        fun new(calendarId: Long, day: LocalDate, now: LocalDateTime, zone: ZoneId, time: LocalTime? = null, minutes: Long = 60): EventDraft {
+        fun new(calendarId: Long, day: LocalDate, now: LocalDateTime, zone: ZoneId, time: LocalTime? = null, minutes: Long = 60, reminders: List<Int> = ReminderTimes.defaults(false)): EventDraft {
             val start = if (time != null) LocalDateTime.of(day, time) else LocalDateTime.of(day, now.toLocalTime().truncatedTo(ChronoUnit.HOURS)).plusHours(1)
-            return EventDraft(calendarId = calendarId, start = start, end = start.plusMinutes(minutes), zone = zone.id, reminders = ReminderTimes.defaults(false))
+            return EventDraft(calendarId = calendarId, start = start, end = start.plusMinutes(minutes), zone = zone.id, reminders = reminders)
         }
 
         /** The occurrence [event] as the editor opens it; times in the event's own zone, [phone]'s when it has none. */

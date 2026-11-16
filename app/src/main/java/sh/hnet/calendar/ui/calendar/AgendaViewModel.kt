@@ -10,6 +10,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -74,6 +76,10 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
                     reload()
                 }
             }
+        }
+        // "Show declined events" switched in Settings › View
+        viewModelScope.launch {
+            app.preferences.viewSettings.map { it.showDeclined }.distinctUntilChanged().drop(1).collectLatest { if (_state.value is CalendarState.Ready) reload() }
         }
         // An event deleted, or its delete undone: out of the list and back at once
         viewModelScope.launch {
@@ -189,7 +195,9 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
                 return
             }
             shown = calendars.filter { it.shown }.mapTo(HashSet()) { it.id }
-            val days = Agenda.build(source.occurrences(firstDay, lastDay, shown).filterNot(app.deletes::hides), firstDay, lastDay, today, anchor = anchor)
+            // Declined invitations are left out here unless Settings › View shows them; what is read is all drawn
+            val declined = app.preferences.viewSettings.first().showDeclined
+            val days = Agenda.build(source.occurrences(firstDay, lastDay, shown).filterNot { app.deletes.hides(it) || (it.declined && !declined) }, firstDay, lastDay, today, showDeclined = true, anchor = anchor)
             _state.value = CalendarState.Ready(days, calendars.associateBy { it.id }, anchor, today, System.currentTimeMillis(), zone)
         } catch (_: SecurityException) {
             // Access was taken away between the check and the query

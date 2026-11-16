@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -85,6 +86,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.time.DayOfWeek
+import java.time.temporal.WeekFields
 import kotlin.math.roundToInt
 import sh.hnet.calendar.R
 import sh.hnet.calendar.model.Agenda
@@ -254,8 +256,11 @@ fun MonthView(
     }
 
     val palette = tilePalette()
+    // Week numbers (SPEC §6.1, a setting): a narrow column before the days
+    val gutter = if (LocalViewOptions.current.weekNumbers) WEEK_NUMBERS else 0.dp
+    val weekFields = remember(weekStart) { WeekFields.of(weekStart, 4) }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().height(24.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(24.dp).padding(start = gutter), verticalAlignment = Alignment.CenterVertically) {
             repeat(7) { column ->
                 Text(
                     formats.weekday(weekStart.plus(column.toLong())),
@@ -279,7 +284,7 @@ fun MonthView(
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             // The full grid shares all the height above the system's navigation area; the compact one has rows of 48 dp
             val fullHeight = (maxHeight - navigationBar).coerceAtLeast(compactHeight)
-            val fullSize = with(LocalDensity.current) { Size(maxWidth.toPx(), fullHeight.toPx()) }
+            val fullSize = with(LocalDensity.current) { Size((maxWidth - gutter).toPx(), fullHeight.toPx()) }
             Column(Modifier.fillMaxSize()) {
                 // The weeks of the month the grid is at and of both its neighbors are ready before a swipe starts
                 val month = scroll.month
@@ -289,11 +294,22 @@ fun MonthView(
                     content = {
                         for (weekFirst in weeks) {
                             key(weekFirst) {
-                                val week = remember(events, weekFirst) { Month.week(if (events.covers(weekFirst, weekFirst + 6)) events.occurrences else emptyList(), weekFirst) }
-                                Box {
+                                val week = remember(events, weekFirst) { Month.week(if (events.covers(weekFirst, weekFirst + 6)) events.occurrences else emptyList(), weekFirst, showDeclined = true) }
+                                Box(Modifier.padding(start = gutter)) {
                                     if (showFull) FullWeek(week, shownMonth, state, palette, formats, fullSize, Modifier.graphicsLayer { alpha = 1f - list.value.coerceIn(0f, 1f) })
                                     if (showList) CompactWeek(week, shownMonth, focus, state, palette, Modifier.graphicsLayer { alpha = list.value.coerceIn(0f, 1f) })
                                     DayTargets(weekFirst, formats, if (eventList) onFocus else onOpenDay)
+                                }
+                                if (gutter > 0.dp) {
+                                    // The number of the week by its Thursday, as the ISO count has it for weeks from Monday
+                                    Text(
+                                        JulianDay.toDate(weekFirst).get(weekFields.weekOfWeekBasedYear()).toString(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        modifier = Modifier.width(gutter).padding(top = 9.dp),
+                                    )
                                 }
                             }
                         }
@@ -306,11 +322,15 @@ fun MonthView(
                     scroll.rowPx = row.coerceAtLeast(1f)
                     scroll.swipe = swipe
                     val rowHeight = kotlin.math.ceil(row).toInt()
-                    val placeables = measurables.map { it.measure(Constraints.fixed(constraints.maxWidth, rowHeight)) }
+                    // A week is its row and, with week numbers on, the number beside it
+                    val each = if (gutter > 0.dp) 2 else 1
+                    val placeables = measurables.mapIndexed { index, measurable ->
+                        if (index % each == 0) measurable.measure(Constraints.fixed(constraints.maxWidth, rowHeight)) else measurable.measure(Constraints(maxHeight = rowHeight))
+                    }
                     layout(constraints.maxWidth, height) {
                         val top = scroll.top
                         placeables.forEachIndexed { index, placeable ->
-                            val y = ((weeks[index] - top) / 7.0 * row).roundToInt()
+                            val y = ((weeks[index / each] - top) / 7.0 * row).roundToInt()
                             // A row out of sight is not drawn
                             if (y > -rowHeight && y < height) placeable.placeWithLayer(0, y)
                         }
@@ -355,9 +375,10 @@ private fun FullWeek(week: MonthWeek, shownMonth: () -> Int, state: CalendarStat
     val numberStyle = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
     val titleStyle = tileTitleStyle()
     val timeStyle = titleStyle.copy(fontWeight = FontWeight.Normal, hyphens = Hyphens.None)
-    val ops = remember(week, state, palette, formats, fullSize, density, scheme, numberStyle, titleStyle, noTitle, moreText) {
+    val dimPast = LocalViewOptions.current.dimPast
+    val ops = remember(week, state, palette, formats, fullSize, density, scheme, numberStyle, titleStyle, noTitle, moreText, dimPast) {
         with(density) {
-            val painter = TilePainter(measurer, palette, state.calendars, state.now, state.today, formats, noTitle, titleStyle, timeStyle, this)
+            val painter = TilePainter(measurer, palette, state.calendars, state.now, state.today, dimPast, scheme.onSurfaceVariant, formats, noTitle, titleStyle, timeStyle, this)
             val rowHeight = fullSize.height / Month.WEEKS
             val columnWidth = fullSize.width / 7
             val line = painter.line
@@ -433,6 +454,7 @@ private fun CompactWeek(week: MonthWeek, shownMonth: () -> Int, focus: Int, stat
     val scheme = MaterialTheme.colorScheme
     val numberStyle = MaterialTheme.typography.bodyMedium
     val plusStyle = tileTitleStyle()
+    val dimPast = LocalViewOptions.current.dimPast
     Spacer(
         modifier.fillMaxSize().drawWithCache {
             val ops = ArrayList<DrawScope.() -> Unit>()
@@ -459,7 +481,8 @@ private fun CompactWeek(week: MonthWeek, shownMonth: () -> Int, focus: Int, stat
                         else -> scheme.onSurface
                     }
                     val text = measurer.measure(date.dayOfMonth.toString(), if (isToday) numberStyle.copy(fontWeight = FontWeight.Medium) else numberStyle, maxLines = 1)
-                    val marks = Month.marks(week, column, state.now, state.today)
+                    // With "Dim past events" off no day counts as over
+                    val marks = Month.marks(week, column, if (dimPast) state.now else Long.MIN_VALUE, if (dimPast) state.today else Int.MIN_VALUE)
                     val dots = marks.dots.map { mark -> palette.getValue(state.calendars[mark.calendarId]?.color ?: CalendarColor.GRAPHITE).let { if (mark.past) it.dimmed else it.fill } }
                     val width = dots.size * dot + (dots.size - 1).coerceAtLeast(0) * gap + if (marks.more) plus.size.width + (if (dots.isEmpty()) 0f else gap) else 0f
                     val marksTop = rowTop + 32.dp.toPx()
@@ -480,7 +503,7 @@ private fun CompactWeek(week: MonthWeek, shownMonth: () -> Int, focus: Int, stat
                     val inset = 6.dp.toPx()
                     val left = bar.firstColumn * columnWidth + if (bar.startsBefore) 0f else inset
                     val right = (bar.lastColumn + 1) * columnWidth - if (bar.endsAfter) 0f else inset
-                    val fill = colors(bar.occurrence).let { if (bar.occurrence.isPast(state.now, state.today) || bar.occurrence.canceled) it.dimmed else it.fill }
+                    val fill = colors(bar.occurrence).let { if ((dimPast && bar.occurrence.isPast(state.now, state.today)) || bar.occurrence.canceled) it.dimmed else it.fill }
                     ops += { drawRoundRect(fill, Offset(left, rowTop + 41.dp.toPx()), Size(right - left, 4.dp.toPx()), CornerRadius(2.dp.toPx())) }
                 }
             }
@@ -494,7 +517,7 @@ private fun CompactWeek(week: MonthWeek, shownMonth: () -> Int, focus: Int, stat
 private fun DayList(day: Int, events: LoadedEvents, state: CalendarState.Ready, formats: CalendarFormats, onOpenEvent: (Occurrence) -> Unit) {
     val loaded = events.covers(day, day)
     val rows = remember(events, day, state.today) {
-        if (loaded) Agenda.build(events.occurrences, day, day, state.today).firstOrNull()?.rows.orEmpty() else emptyList()
+        if (loaded) Agenda.build(events.occurrences, day, day, state.today, showDeclined = true).firstOrNull()?.rows.orEmpty() else emptyList()
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         // Another day starts at its top
@@ -511,7 +534,7 @@ private fun DayList(day: Int, events: LoadedEvents, state: CalendarState.Ready, 
                         EventRow(
                             row = row,
                             color = state.calendars[row.occurrence.calendarId]?.color ?: CalendarColor.GRAPHITE,
-                            past = row.occurrence.isPast(state.now, state.today),
+                            past = LocalViewOptions.current.dimPast && row.occurrence.isPast(state.now, state.today),
                             formats = formats,
                             shape = groupShape(index == 0, index == rows.lastIndex),
                             onClick = { onOpenEvent(row.occurrence) },
@@ -542,6 +565,7 @@ private const val MONTH_SPAN = Month.WEEKS * 7 - 1
 private val TILE_PADDING_VERTICAL = 1.dp
 private val TILE_PADDING_HORIZONTAL = 3.dp
 private val COMPACT_ROW = 48.dp
+private val WEEK_NUMBERS = 20.dp
 /** The speed from which a release counts as a swipe to the next month, as a pager's. */
 private val SWIPE_SPEED = 400.dp
 
@@ -555,6 +579,9 @@ private class TilePainter(
     private val calendars: Map<Long, CalendarInfo>,
     private val now: Long,
     private val today: Int,
+    private val dimPast: Boolean,
+    /** The text of a declined event (SPEC §5.3). */
+    private val quiet: Color,
     private val formats: CalendarFormats,
     private val noTitle: String,
     private val titleStyle: TextStyle,
@@ -581,10 +608,10 @@ private class TilePainter(
 
     fun tile(occurrence: Occurrence, left: Float, top: Float, width: Float, height: Float, lines: TileLines, title: TextLayoutResult, flatStart: Boolean = false, flatEnd: Boolean = false): DrawScope.() -> Unit {
         val colors = palette.getValue(calendars[occurrence.calendarId]?.color ?: CalendarColor.GRAPHITE)
-        val canceled = occurrence.canceled
-        val outlined = occurrence.tentative && !canceled
-        val dimmed = canceled || occurrence.isPast(now, today)
-        val ink = if (outlined) colors.outline else if (dimmed) colors.text else colors.on
+        val state = occurrence.tileState(now, today, dimPast)
+        val outlined = state.outlined
+        val dimmed = state.dimmed
+        val ink = if (state.solid) quiet else if (outlined) colors.outline else if (dimmed) colors.text else colors.on
         // The outline lies inside the tile's bounds
         val inset = if (outlined) stroke / 2 else 0f
         val start = if (flatStart) CornerRadius.Zero else radius
@@ -596,10 +623,10 @@ private class TilePainter(
         val titleTop = top + paddingVertical + if (time != null) line else 0f
         val titleBottom = titleTop + title.getLineBottom(minOf(lines.title, title.lineCount) - 1)
         return {
-            if (outlined) drawPath(path, colors.outline, style = Stroke(stroke, pathEffect = dashes)) else drawPath(path, if (dimmed) colors.dimmed else colors.fill)
+            if (outlined) drawPath(path, colors.outline, style = Stroke(stroke, pathEffect = if (state.solid) null else dashes)) else drawPath(path, if (dimmed) colors.dimmed else colors.fill)
             if (time != null) clipRect(textLeft, top, textRight, top + height) { drawText(time, ink, Offset(textLeft, top + paddingVertical)) }
             clipRect(textLeft, titleTop, textRight, minOf(titleBottom, top + height)) {
-                drawText(title, ink, Offset(textLeft, titleTop), textDecoration = if (canceled) TextDecoration.LineThrough else null)
+                drawText(title, ink, Offset(textLeft, titleTop), textDecoration = if (state.struck) TextDecoration.LineThrough else null)
             }
         }
     }

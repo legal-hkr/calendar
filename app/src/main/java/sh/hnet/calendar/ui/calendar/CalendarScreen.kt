@@ -37,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -206,6 +207,8 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
             },
         )
         Box(Modifier.fillMaxSize()) {
+        // What Settings › View says about the looks reaches the tiles this way
+        CompositionLocalProvider(LocalViewOptions provides remember(settings.dimPast, settings.firstHour, settings.weekNumbers) { ViewOptions(settings.dimPast, settings.firstHour, settings.weekNumbers) }) {
         Crossfade(view, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), modifier = Modifier.fillMaxSize()) { shown ->
             when (shown) {
                 CalendarView.MONTH -> MonthView(
@@ -236,6 +239,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
                 CalendarView.DAY -> DayView(state, formats, weekStart, dayPager, hours, focus, onFocus = { focus = it }, onOpenEvent = onOpenEvent, onNewEvent = onNewEvent, onZoomed = onZoomed)
                 CalendarView.AGENDA -> AgendaList(state, formats, target = focus, jump = jump, onDay = { if (view == CalendarView.AGENDA) focus = it }, onNearEnd = viewModel::extend, onOpenEvent = onOpenEvent)
             }
+        }
         }
         // New event (SPEC §3.5), where there is a calendar to write to. On the day shown in Day and chosen in Month's list, else today
         if (state.calendars.values.any { it.writable }) {

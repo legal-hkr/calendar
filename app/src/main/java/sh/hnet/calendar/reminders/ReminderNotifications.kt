@@ -118,17 +118,25 @@ object ReminderNotifications {
 
     fun cancel(context: Context, id: Int) {
         manager(context).cancel(id)
-        refreshSummary(context)
+        refreshSummary(context, gone = id)
     }
 
-    /** Two reminders and more stand under one summary, "Reminders: 3", a line for each (SPEC §14.4); fewer need none. */
-    fun refreshSummary(context: Context) {
+    /**
+     * Two reminders and more stand under one summary, "Reminders: 3", a line for each (SPEC §14.4);
+     * one alone needs none. A summary that is there stays until the last reminder has gone, though:
+     * **the system takes a group's notifications away with its summary**, so canceling it at one
+     * left would take that one too (found by the owner, 16 Nov 2026). [gone] is a notification
+     * just canceled, which the system may still list.
+     */
+    fun refreshSummary(context: Context, gone: Int = 0) {
         val manager = manager(context)
-        val shown = manager.activeNotifications.filter { it.id != ID_SUMMARY && it.notification.group == GROUP }
-        if (shown.size < 2) {
+        val active = manager.activeNotifications
+        val shown = active.filter { it.id != ID_SUMMARY && it.id != gone && it.notification.group == GROUP }
+        if (shown.isEmpty()) {
             manager.cancel(ID_SUMMARY)
             return
         }
+        if (shown.size < 2 && active.none { it.id == ID_SUMMARY }) return
         val title = context.getString(R.string.notification_group_summary, shown.size)
         val lines = Notification.InboxStyle().setBigContentTitle(title)
         for (one in shown.sortedBy { it.notification.`when` }) {
@@ -145,7 +153,6 @@ object ReminderNotifications {
                 .setGroupSummary(true)
                 // The reminders make their sound themselves
                 .setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN)
-                .setAutoCancel(true)
                 .build(),
         )
     }

@@ -289,6 +289,27 @@
         <item quantity="other">%d hours</item>
     </plurals>
 
+    <!-- Settings › View and Settings › Events -->
+    <string name="label_settings_view">View</string>
+    <string name="desc_settings_view">Start view, week, past events</string>
+    <string name="label_settings_events">Events</string>
+    <string name="desc_settings_events">Default calendar, length, reminders</string>
+    <string name="label_view_on_start">View on start</string>
+    <string name="label_view_last_used">Last used</string>
+    <string name="label_first_day_of_week">First day of the week</string>
+    <string name="label_first_day_system">System default (%s)</string>
+    <string name="label_first_hour">First hour of the day</string>
+    <string name="label_week_numbers">Week numbers</string>
+    <string name="label_dim_past">Dim past events</string>
+    <string name="label_show_declined">Show declined events</string>
+    <string name="label_state_declined">Declined</string>
+    <string name="label_default_calendar">Default calendar</string>
+    <string name="label_calendar_last_used">Last used</string>
+    <string name="label_default_length">Default length</string>
+    <string name="label_length_hour_and_half">1.5 hours</string>
+    <string name="label_reminders_timed">Reminders for timed events</string>
+    <string name="label_reminders_all_day">Reminders for all-day events</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>
     <string name="msg_wizard_access_1">Calendar shows and changes the events saved on this phone. Without access it can’t show any of them.</string>

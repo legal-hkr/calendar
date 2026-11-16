@@ -8,6 +8,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -60,6 +62,7 @@ class RangeViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 // An event deleted, or its delete undone
                 launch { app.deletes.hidden.drop(1).collectLatest { load() } }
+                launch { app.preferences.viewSettings.map { it.showDeclined }.distinctUntilChanged().drop(1).collectLatest { load() } }
                 // The first value is what the first load reads anyway
                 choices.choices.drop(1).collectLatest { load() }
             }
@@ -76,7 +79,9 @@ class RangeViewModel(application: Application) : AndroidViewModel(application) {
         if (last < first) return@withLock
         try {
             val shown = CalendarChoices.apply(source.calendars(), choices.choices.first()).filter { it.shown }.mapTo(HashSet()) { it.id }
-            _events.value = LoadedEvents(first, last, source.occurrences(first, last, shown).filterNot(app.deletes::hides))
+            // Declined invitations are left out here unless Settings › View shows them; what is read is all drawn
+            val declined = app.preferences.viewSettings.first().showDeclined
+            _events.value = LoadedEvents(first, last, source.occurrences(first, last, shown).filterNot { app.deletes.hides(it) || (it.declined && !declined) })
         } catch (_: SecurityException) {
             // Access was taken away; the main screen says so when it comes to the front
             _events.value = LoadedEvents.NONE

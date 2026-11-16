@@ -11,17 +11,23 @@ import sh.hnet.calendar.ui.components.SettingsPage
 
 /**
  * The Settings root, a page over the calendar. Grouped as Music's, Clock's, News's and Calculator's: App
- * (language), Data (reset) and About on its own, after the app's own groups: Reminders, and Calendars; View, Events,
+ * (language), Data (reset) and About on its own, after the app's own groups: View, Events and Reminders, then Calendars;
  * Import from a file and Backup join with their stages.
  */
 @Composable
-fun SettingsRootScreen(onBack: () -> Unit, onOpenCalendars: () -> Unit, onOpenReminders: () -> Unit, onOpenLanguage: () -> Unit, onOpenReset: () -> Unit, onOpenAbout: () -> Unit) {
+fun SettingsRootScreen(onBack: () -> Unit, onOpenCalendars: () -> Unit, onOpenView: () -> Unit, onOpenEvents: () -> Unit, onOpenReminders: () -> Unit, onOpenLanguage: () -> Unit, onOpenReset: () -> Unit, onOpenAbout: () -> Unit) {
     val context = LocalContext.current
     val version = BuildConfig.VERSION_NAME.removePrefix("v")
     // Read on every composition: changing it recreates the activity anyway
     val language = appLanguages.firstOrNull { it.tag == currentLanguageTag(context) } ?: appLanguages.first()
     SettingsPage(title = stringResource(R.string.title_settings), onBack = onBack) {
         SettingsGroup {
+            row { shapes ->
+                SettingsNavigationRow(shapes, R.drawable.ic_calendar_view_month, stringResource(R.string.label_settings_view), stringResource(R.string.desc_settings_view), onClick = onOpenView)
+            }
+            row { shapes ->
+                SettingsNavigationRow(shapes, R.drawable.ic_edit, stringResource(R.string.label_settings_events), stringResource(R.string.desc_settings_events), onClick = onOpenEvents)
+            }
             row { shapes ->
                 SettingsNavigationRow(shapes, R.drawable.ic_notifications, stringResource(R.string.label_settings_reminders), stringResource(R.string.desc_settings_reminders), onClick = onOpenReminders)
             }

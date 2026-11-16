@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import sh.hnet.calendar.CalendarApplication
+import sh.hnet.calendar.EventDefaults
 import sh.hnet.calendar.data.EventWriter
 import sh.hnet.calendar.model.CalendarChoices
 import sh.hnet.calendar.model.CalendarInfo
@@ -33,7 +34,7 @@ sealed interface EditorState {
      * @param copy Whether [event] is only the pattern for a new one (Duplicate)
      * @param calendars The calendars that can be written to
      */
-    data class Ready(val draft: EventDraft, val opened: EventDraft, val event: EventDetails?, val copy: Boolean, val calendars: List<CalendarInfo>) : EditorState {
+    data class Ready(val draft: EventDraft, val opened: EventDraft, val event: EventDetails?, val copy: Boolean, val calendars: List<CalendarInfo>, val defaults: EventDefaults = EventDefaults()) : EditorState {
         val editing: Boolean get() = event != null && !copy
         val changed: Boolean get() = draft != opened
 
@@ -103,15 +104,16 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
         val calendars = CalendarChoices.apply(source.calendars(), app.calendarChoices.choices.first()).filter { it.writable }
         if (calendars.isEmpty()) return EditorState.Gone
         val zone = ZoneId.systemDefault()
-        // A new event goes where the last one went, else to the first calendar shown
-        val last = app.preferences.lastCalendar.first()
+        // A new event goes to the calendar chosen in Settings › Events, else where the last one went, else to the first calendar shown
+        val defaults = app.preferences.eventDefaults.first()
+        val last = defaults.calendar ?: app.preferences.lastCalendar.first()
         val usual = calendars.firstOrNull { it.key == last } ?: calendars.firstOrNull { it.shown } ?: calendars.first()
         if (screen.eventId == 0L) {
             val now = LocalDateTime.now(zone)
             val day = if (screen.day > 0) JulianDay.toDate(screen.day) else now.toLocalDate()
             val time = if (screen.minute >= 0) LocalTime.of(screen.minute / 60, screen.minute % 60) else null
-            val draft = EventDraft.new(usual.id, day, now, zone, time)
-            return EditorState.Ready(draft, draft, null, false, calendars)
+            val draft = EventDraft.new(usual.id, day, now, zone, time, defaults.length.toLong(), defaults.remindersTimed)
+            return EditorState.Ready(draft, draft, null, false, calendars, defaults)
         }
         val event = source.event(screen.eventId, screen.begin, screen.end) ?: return EditorState.Gone
         var draft = EventDraft.of(event, zone)
@@ -124,7 +126,7 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
             if (calendars.none { it.id == draft.calendarId }) return EditorState.Gone
             fingerprint = app.writer.fingerprint(screen.eventId)
         }
-        return EditorState.Ready(draft, draft, event, screen.copy, calendars)
+        return EditorState.Ready(draft, draft, event, screen.copy, calendars, defaults)
     }
 
     fun change(transform: (EventDraft) -> EventDraft) {

@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -149,7 +150,7 @@ fun AgendaList(state: CalendarState.Ready, formats: CalendarFormats, target: Int
                     is AgendaItem.Event -> EventRow(
                         row = item.row,
                         color = state.calendars[item.row.occurrence.calendarId]?.color ?: CalendarColor.GRAPHITE,
-                        past = item.row.occurrence.isPast(state.now, state.today),
+                        past = LocalViewOptions.current.dimPast && item.row.occurrence.isPast(state.now, state.today),
                         formats = formats,
                         shape = groupShape(item.first, item.last),
                         onClick = { onOpenEvent(item.row.occurrence) },
@@ -204,6 +205,7 @@ internal fun EventRow(row: AgendaRow, color: CalendarColor, past: Boolean, forma
     val occurrence = row.occurrence
     val supporting = when {
         occurrence.canceled -> stringResource(R.string.label_state_canceled)
+        occurrence.declined -> stringResource(R.string.label_state_declined)
         occurrence.tentative -> stringResource(R.string.label_state_tentative)
         row.multiDay -> stringResource(R.string.label_day_of_days, row.dayNumber, row.dayCount)
         else -> occurrence.location.lineSequence().firstOrNull().orEmpty()
@@ -223,12 +225,13 @@ internal fun EventRow(row: AgendaRow, color: CalendarColor, past: Boolean, forma
                 // A 12-hour time with its marker needs more room than "09:30"
                 modifier = Modifier.width(if (formats.hours24) 40.dp else 60.dp),
             )
-            ColorBar(color, past = past, outlined = occurrence.tentative, modifier = Modifier.padding(start = 10.dp, end = 12.dp).width(4.dp).fillMaxHeight())
+            ColorBar(color, past = past, outlined = occurrence.tentative || occurrence.declined, solid = occurrence.declined, modifier = Modifier.padding(start = 10.dp, end = 12.dp).width(4.dp).fillMaxHeight())
             Column(Modifier.weight(1f)) {
                 Text(
                     occurrence.title.ifEmpty { stringResource(R.string.label_no_title) },
                     style = MaterialTheme.typography.bodyLarge,
-                    textDecoration = if (occurrence.canceled) TextDecoration.LineThrough else null,
+                    textDecoration = if (occurrence.canceled || occurrence.declined) TextDecoration.LineThrough else null,
+                    color = if (occurrence.declined) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -240,9 +243,9 @@ internal fun EventRow(row: AgendaRow, color: CalendarColor, past: Boolean, forma
     }
 }
 
-/** The 4 dp bar of a row (SPEC §4.3): filled; dimmed for an event that is over; a dashed outline for a tentative one. */
+/** The 4 dp bar of a row (SPEC §4.3): filled; dimmed for an event that is over; a dashed outline for a tentative one, a [solid] one for a declined one. */
 @Composable
-private fun ColorBar(color: CalendarColor, past: Boolean, outlined: Boolean, modifier: Modifier = Modifier) {
+private fun ColorBar(color: CalendarColor, past: Boolean, outlined: Boolean, modifier: Modifier = Modifier, solid: Boolean = false) {
     val fill = if (past) color.dimmedFill() else color.fill()
     val outline = color.outline()
     Box(
@@ -254,7 +257,7 @@ private fun ColorBar(color: CalendarColor, past: Boolean, outlined: Boolean, mod
                     topLeft = Offset(stroke / 2, stroke / 2),
                     size = Size(size.width - stroke, size.height - stroke),
                     cornerRadius = CornerRadius(2.dp.toPx()),
-                    style = Stroke(stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx()))),
+                    style = Stroke(stroke, pathEffect = if (solid) null else PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx()))),
                 )
             }
         } else {

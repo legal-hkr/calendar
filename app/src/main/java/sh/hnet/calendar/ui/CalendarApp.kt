@@ -60,7 +60,9 @@ import sh.hnet.calendar.ui.settings.SettingsRootScreen
 import sh.hnet.calendar.ui.settings.WhatsNewScreen
 import sh.hnet.calendar.reminders.ReminderNotifications
 import sh.hnet.calendar.ui.components.NotificationAccess
+import sh.hnet.calendar.ui.settings.EventsSettingsScreen
 import sh.hnet.calendar.ui.settings.RemindersSettingsScreen
+import sh.hnet.calendar.ui.settings.ViewSettingsScreen
 import sh.hnet.calendar.ui.welcome.AccessScreen
 import sh.hnet.calendar.ui.welcome.RemindersScreen
 
@@ -188,6 +190,8 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
                         SettingsRootScreen(
                             onBack = back,
                             onOpenCalendars = { open(Screen.Calendars) },
+                            onOpenView = { open(Screen.SettingsView) },
+                            onOpenEvents = { open(Screen.SettingsEvents) },
                             onOpenReminders = { open(Screen.SettingsReminders) },
                             onOpenLanguage = { open(Screen.SettingsLanguage) },
                             onOpenReset = { open(Screen.SettingsReset) },
@@ -195,6 +199,8 @@ fun CalendarApp(asked: Screen.Event? = null, onOpened: () -> Unit = {}) {
                         )
                     }
                     entry<Screen.Calendars> { CalendarsScreen(onBack = back) }
+                    entry<Screen.SettingsView> { ViewSettingsScreen(onBack = back) }
+                    entry<Screen.SettingsEvents> { EventsSettingsScreen(onBack = back) }
                     entry<Screen.SettingsReminders> { RemindersSettingsScreen(onBack = back) }
                     entry<Screen.SettingsLanguage> { LanguageScreen(onBack = back) }
                     entry<Screen.SettingsReset> { ResetScreen(onBack = back) }

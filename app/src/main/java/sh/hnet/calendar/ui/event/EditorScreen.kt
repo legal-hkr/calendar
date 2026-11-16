@@ -225,7 +225,7 @@ private fun Form(ready: EditorState.Ready, saving: Boolean, onChange: ((EventDra
             // When
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 val rows = if (ready.mayRepeat) 5 else 4
-                SettingsSwitchRow(groupShapes(0, rows), R.drawable.ic_schedule, stringResource(R.string.label_all_day), draft.allDay, { on -> onChange { it.withAllDay(on) } })
+                SettingsSwitchRow(groupShapes(0, rows), R.drawable.ic_schedule, stringResource(R.string.label_all_day), draft.allDay, { on -> onChange { it.withAllDay(on, ready.defaults.reminders(on)) } })
                 TimeRow(groupShapes(1, rows), stringResource(R.string.label_start), draft.start.toLocalDate(), if (draft.allDay) null else draft.start.toLocalTime(), today, formats, { date -> onChange { it.withStartDate(date) } }, { time -> onChange { it.withStartTime(time) } })
                 TimeRow(groupShapes(2, rows), stringResource(R.string.label_end), draft.end.toLocalDate(), if (draft.allDay) null else draft.end.toLocalTime(), today, formats, { date -> onChange { it.withEndDate(date) } }, { time -> onChange { it.withEndTime(time) } })
                 Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = groupShapes(3, rows).shape, modifier = Modifier.fillMaxWidth()) {

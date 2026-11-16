@@ -64,4 +64,13 @@ class ReminderPlanTest {
         assertEquals(listOf(moved), ReminderPlan.due(listOf(moved), at("2026-11-18T13:50:00Z"), warsaw, setOf(timed(15).key)))
         assertEquals("1|${timed(15).begin}", timed(15).occurrence)
     }
+
+    @Test
+    fun anAllDayEventWithoutAProperEndLastsItsDay() {
+        // Stored with its end at its start, or within the day: still on until midnight here
+        val endless = allDay(-540).copy(end = at("2026-11-18T00:00:00Z"))
+        assertEquals(listOf(endless), ReminderPlan.due(listOf(endless), at("2026-11-18T08:00:00Z"), warsaw, emptySet()))
+        assertEquals(at("2026-11-18T23:00:00Z"), ReminderPlan.endsAt(endless.copy(end = at("2026-11-18T23:00:00Z")), warsaw))
+        assertEquals(emptyList<Reminder>(), ReminderPlan.due(listOf(endless), at("2026-11-18T23:00:00Z"), warsaw, emptySet()))
+    }
 }

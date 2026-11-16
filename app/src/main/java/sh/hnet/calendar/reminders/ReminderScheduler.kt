@@ -83,7 +83,7 @@ class ReminderScheduler(private val app: CalendarApplication) {
                     ReminderNotifications.post(app, reminder.eventId, reminder.begin, reminder.end, reminder.allDay, reminder.title, reminder.location, now, zone)
                 }
             }
-            store.markShown(done.associate { it.key to ReminderPlan.local(it.end, it.allDay, zone) })
+            store.markShown(done.associate { it.key to ReminderPlan.endsAt(it, zone) })
             store.started = true
 
             // Put off earlier and due again

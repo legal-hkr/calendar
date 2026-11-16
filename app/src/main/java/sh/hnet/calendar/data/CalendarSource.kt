@@ -13,6 +13,7 @@ import android.provider.CalendarContract.Attendees
 import android.provider.CalendarContract.Calendars
 import android.provider.CalendarContract.Events
 import android.provider.CalendarContract.Instances
+import android.provider.CalendarContract.Reminders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -22,7 +23,9 @@ import kotlinx.coroutines.withContext
 import sh.hnet.calendar.model.Answer
 import sh.hnet.calendar.model.CalendarColor
 import sh.hnet.calendar.model.CalendarInfo
+import sh.hnet.calendar.model.EventDetails
 import sh.hnet.calendar.model.EventStatus
+import sh.hnet.calendar.model.Guest
 import sh.hnet.calendar.model.Occurrence
 
 /**
@@ -105,7 +108,7 @@ class CalendarSource(private val context: Context) {
         }.build()
         val projection = arrayOf(
             Instances.EVENT_ID, Instances.CALENDAR_ID, Instances.TITLE, Instances.EVENT_LOCATION, Instances.BEGIN, Instances.END,
-            Instances.ALL_DAY, Instances.START_DAY, Instances.END_DAY, Instances.STATUS, Instances.SELF_ATTENDEE_STATUS,
+            Instances.ALL_DAY, Instances.START_DAY, Instances.END_DAY, Instances.STATUS, Instances.SELF_ATTENDEE_STATUS, Instances.ORIGINAL_ID,
         )
         val result = mutableListOf<Occurrence>()
         resolver.query(uri, projection, null, null, "${Instances.BEGIN} ASC")?.use { cursor ->
@@ -134,9 +137,84 @@ class CalendarSource(private val context: Context) {
                         Attendees.ATTENDEE_STATUS_TENTATIVE -> Answer.TENTATIVE
                         else -> Answer.NONE
                     },
+                    originalId = if (cursor.isNull(11)) 0 else cursor.getLong(11),
                 )
             }
         }
         result
+    }
+
+    /**
+     * The event [eventId] as its page shows it, for the occurrence from [begin] to [end]; null when
+     * it is gone (deleted here or by a sync).
+     */
+    suspend fun event(eventId: Long, begin: Long, end: Long): EventDetails? = withContext(Dispatchers.IO) {
+        val projection = arrayOf(
+            Events.CALENDAR_ID, Events.TITLE, Events.EVENT_LOCATION, Events.DESCRIPTION, Events.ALL_DAY, Events.EVENT_TIMEZONE, Events.RRULE,
+            Events.ORIGINAL_ID, Events.AVAILABILITY, Events.ACCESS_LEVEL, Events.STATUS, Events.ORGANIZER, Calendars.OWNER_ACCOUNT,
+        )
+        resolver.query(ContentUris.withAppendedId(Events.CONTENT_URI, eventId), projection, "${Events.DELETED} = 0", null, null)?.use { cursor ->
+            if (!cursor.moveToFirst()) return@withContext null
+            val organizer = cursor.getString(11).orEmpty()
+            val owner = cursor.getString(12).orEmpty()
+            val guests = guests(eventId)
+            val self = guests.firstOrNull { owner.isNotEmpty() && it.email.equals(owner, ignoreCase = true) }
+            EventDetails(
+                eventId = eventId,
+                calendarId = cursor.getLong(0),
+                title = cursor.getString(1).orEmpty().trim(),
+                location = cursor.getString(2).orEmpty().trim(),
+                description = cursor.getString(3).orEmpty().trim(),
+                begin = begin,
+                end = end,
+                allDay = cursor.getInt(4) != 0,
+                timeZone = cursor.getString(5)?.takeIf { it.isNotEmpty() },
+                rule = cursor.getString(6)?.takeIf { it.isNotEmpty() },
+                exception = !cursor.isNull(7),
+                busy = cursor.getInt(8) != Events.AVAILABILITY_FREE,
+                private = cursor.getInt(9).let { it == Events.ACCESS_PRIVATE || it == Events.ACCESS_CONFIDENTIAL },
+                status = if (cursor.isNull(10)) EventStatus.CONFIRMED else when (cursor.getInt(10)) {
+                    Events.STATUS_TENTATIVE -> EventStatus.TENTATIVE
+                    Events.STATUS_CANCELED -> EventStatus.CANCELED
+                    else -> EventStatus.CONFIRMED
+                },
+                organizer = organizer,
+                guests = guests,
+                reminders = reminders(eventId),
+                // The organizer of an event has nothing to answer
+                invited = self != null && !organizer.equals(owner, ignoreCase = true),
+                answer = self?.answer ?: Answer.NONE,
+            )
+        }
+    }
+
+    private fun guests(eventId: Long): List<Guest> {
+        val projection = arrayOf(Attendees.ATTENDEE_NAME, Attendees.ATTENDEE_EMAIL, Attendees.ATTENDEE_STATUS, Attendees.ATTENDEE_RELATIONSHIP)
+        val result = mutableListOf<Guest>()
+        resolver.query(Attendees.CONTENT_URI, projection, "${Attendees.EVENT_ID} = ?", arrayOf(eventId.toString()), null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                result += Guest(
+                    name = cursor.getString(0).orEmpty().trim(),
+                    email = cursor.getString(1).orEmpty().trim(),
+                    answer = when (cursor.getInt(2)) {
+                        Attendees.ATTENDEE_STATUS_ACCEPTED -> Answer.ACCEPTED
+                        Attendees.ATTENDEE_STATUS_DECLINED -> Answer.DECLINED
+                        Attendees.ATTENDEE_STATUS_TENTATIVE -> Answer.TENTATIVE
+                        else -> Answer.INVITED
+                    },
+                    organizer = cursor.getInt(3) == Attendees.RELATIONSHIP_ORGANIZER,
+                )
+            }
+        }
+        // The organizer first, then by name
+        return result.sortedWith(compareBy({ !it.organizer }, { it.label.lowercase() }))
+    }
+
+    private fun reminders(eventId: Long): List<Int> {
+        val result = sortedSetOf<Int>()
+        resolver.query(Reminders.CONTENT_URI, arrayOf(Reminders.MINUTES), "${Reminders.EVENT_ID} = ?", arrayOf(eventId.toString()), null)?.use { cursor ->
+            while (cursor.moveToNext()) result += cursor.getInt(0).coerceAtLeast(0)
+        }
+        return result.toList()
     }
 }

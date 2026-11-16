@@ -36,6 +36,89 @@
     <string name="label_more_events" translatable="false">+%d</string>
     <string name="label_title_and_time" translatable="false">%1$s, %2$s</string>
 
+    <!-- Event page -->
+    <string name="label_calendar_and_account" translatable="false">%1$s, %2$s</string>
+    <string name="label_time_range" translatable="false">%1$s–%2$s</string>
+    <string name="label_event_ends">Ends: %s</string>
+    <string name="label_time_zone_value">Time zone: %s</string>
+    <string name="content_description_directions">Directions</string>
+    <string name="msg_place_copied">Location copied</string>
+    <string name="label_guests_count">Guests (%d)</string>
+    <string name="msg_guests_organizer">Organized by %s.</string>
+    <string name="msg_guests_summary">Accepted: %1$d, no answer: %2$d.</string>
+    <string name="label_guest_state" translatable="false">%1$s – %2$s</string>
+    <string name="label_guest_accepted">accepted</string>
+    <string name="label_guest_tentative">tentatively accepted</string>
+    <string name="label_guest_declined">declined</string>
+    <string name="label_guest_no_answer">no answer</string>
+    <string name="label_guest_organizer">organizer</string>
+    <string name="label_availability_value">Availability: %s</string>
+    <string name="label_visibility_value">Visibility: %s</string>
+    <string name="label_status_value">Status: %s</string>
+    <string name="label_free">Free</string>
+    <string name="label_visibility_private">Private</string>
+    <string name="label_status_tentative">Tentative</string>
+    <string name="label_description">Description</string>
+    <string name="button_show_more">Show more</string>
+    <string name="button_show_less">Show less</string>
+    <string name="msg_read_only_event">Read-only calendar. This event can’t be changed or deleted.</string>
+    <string name="label_going">Going?</string>
+    <string name="button_answer_yes">Yes</string>
+    <string name="button_answer_maybe">Maybe</string>
+    <string name="button_answer_no">No</string>
+    <string name="msg_answer_saved">Answer saved. It will be sent at the next sync.</string>
+    <string name="button_edit">Edit</string>
+    <string name="button_duplicate">Duplicate</string>
+    <string name="content_description_share">Share</string>
+    <string name="content_description_delete">Delete</string>
+    <string name="menu_share_file">As a file (ICS)</string>
+    <string name="menu_share_text">As text</string>
+    <string name="msg_event_deleted">Event deleted</string>
+    <string name="button_undo">Undo</string>
+    <string name="title_which_events_change">Which events to change?</string>
+    <string name="title_which_events_delete">Which events to delete?</string>
+    <string name="label_scope_this">Only this event</string>
+    <string name="label_scope_following">This and following events</string>
+    <string name="label_scope_all">All events</string>
+
+    <!-- Editor -->
+    <string name="content_description_new_event">New event</string>
+    <string name="title_new_event">New event</string>
+    <string name="title_edit_event">Edit event</string>
+    <string name="button_save">Save</string>
+    <string name="button_done">Done</string>
+    <string name="label_title">Title</string>
+    <string name="label_start">Start</string>
+    <string name="label_end">End</string>
+    <string name="label_today">Today</string>
+    <string name="label_tomorrow">Tomorrow</string>
+    <string name="label_in_a_week">In a week</string>
+    <string name="label_calendar">Calendar</string>
+    <string name="hint_add_place">Add location</string>
+    <string name="hint_add_description">Add description</string>
+    <string name="label_more_options">More options</string>
+    <string name="desc_more_options">Time zone, availability, visibility</string>
+    <string name="label_time_zone">Time zone</string>
+    <string name="hint_search_time_zone">Search by place</string>
+    <string name="label_availability">Availability</string>
+    <string name="label_visibility">Visibility</string>
+    <string name="label_busy">Busy</string>
+    <string name="label_visibility_default">Default</string>
+    <string name="msg_event_saved">Event saved</string>
+    <string name="title_discard_changes">Discard changes?</string>
+    <string name="button_discard">Discard</string>
+    <string name="button_keep_editing">Keep editing</string>
+    <string name="desc_calendar_other_account">Another account. Duplicate the event to copy it there.</string>
+    <string name="desc_calendar_stays">A repeating event or one with guests stays in its calendar. Duplicate it to copy it there.</string>
+    <string name="title_event_changed">This event was changed in the meantime</string>
+    <string name="msg_event_changed">It was changed by a sync while you were editing.</string>
+    <string name="button_save_my_version">Save my version</string>
+    <string name="button_discard_my_changes">Discard my changes</string>
+    <string name="title_event_vanished">This event was deleted in the meantime</string>
+    <string name="button_save_as_new">Save as a new event</string>
+    <string name="error_save_failed">The event couldn’t be saved</string>
+    <string name="button_show">Show</string>
+
     <!-- First run and calendar access -->
     <string name="title_wizard_access">Calendar access</string>
     <string name="msg_wizard_access_1">Calendar shows and changes the events saved on this phone. Without access it can’t show any of them.</string>

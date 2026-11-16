@@ -129,6 +129,7 @@ fun MonthView(
     focus: Int,
     onFocus: (Int) -> Unit,
     onOpenDay: (Int) -> Unit,
+    onOpenEvent: (Occurrence) -> Unit,
     viewModel: RangeViewModel = viewModel(key = "month"),
 ) {
     val events by viewModel.events.collectAsStateWithLifecycle()
@@ -194,7 +195,7 @@ fun MonthView(
                 if (showList) {
                     Column(Modifier.fillMaxWidth().weight(1f).graphicsLayer { alpha = list.value.coerceIn(0f, 1f) }) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        DayList(focus, events, state, formats)
+                        DayList(focus, events, state, formats, onOpenEvent)
                     }
                 }
             }
@@ -386,7 +387,7 @@ private fun CompactMonth(grid: MonthGrid, number: Int, focus: Int, state: Calend
 
 /** The chosen day under the compact grid (SPEC §6.3): its header and rows as in Agenda. The list scrolls, the grid stays. */
 @Composable
-private fun DayList(day: Int, events: LoadedEvents, state: CalendarState.Ready, formats: CalendarFormats) {
+private fun DayList(day: Int, events: LoadedEvents, state: CalendarState.Ready, formats: CalendarFormats, onOpenEvent: (Occurrence) -> Unit) {
     val loaded = events.covers(day, day)
     val rows = remember(events, day, state.today) {
         if (loaded) Agenda.build(events.occurrences, day, day, state.today).firstOrNull()?.rows.orEmpty() else emptyList()
@@ -409,6 +410,7 @@ private fun DayList(day: Int, events: LoadedEvents, state: CalendarState.Ready, 
                             past = row.occurrence.isPast(state.now, state.today),
                             formats = formats,
                             shape = groupShape(index == 0, index == rows.lastIndex),
+                            onClick = { onOpenEvent(row.occurrence) },
                             modifier = Modifier.padding(top = if (index == 0) 0.dp else 2.dp),
                         )
                     }

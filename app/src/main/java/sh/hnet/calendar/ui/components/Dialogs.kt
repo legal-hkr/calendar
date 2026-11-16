@@ -1,6 +1,9 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package sh.hnet.calendar.ui.components
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,10 +16,13 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -32,6 +38,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import sh.hnet.calendar.R
+import sh.hnet.calendar.model.Scope
 
 /**
  * Confirmation of something that can't be undone: the icon in the error color, Cancel, then the
@@ -130,5 +137,32 @@ fun <T> SingleChoiceDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.button_cancel)) } },
         confirmButton = { TextButton(onClick = { onConfirm(options[chosen]) }) { Text(confirmLabel) } },
+    )
+}
+
+/**
+ * Which occurrences of a repeating event a change or a delete is for (SPEC §10.7, board 16): the
+ * one question, its three answers as a segmented list, and Cancel. An answer acts at once.
+ */
+@Composable
+fun ScopeDialog(title: String, onChoose: (Scope) -> Unit, onDismiss: () -> Unit) {
+    val answers = listOf(Scope.ONLY_THIS to R.string.label_scope_this, Scope.FOLLOWING to R.string.label_scope_following, Scope.ALL to R.string.label_scope_all)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                answers.forEachIndexed { index, (scope, label) ->
+                    SegmentedListItem(
+                        onClick = { onChoose(scope) },
+                        shapes = groupShapes(index, answers.size),
+                        colors = ListItemDefaults.segmentedColors(containerColor = MaterialTheme.colorScheme.surface),
+                    ) {
+                        Text(stringResource(label))
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.button_cancel)) } },
     )
 }

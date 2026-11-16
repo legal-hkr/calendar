@@ -58,6 +58,8 @@ class RangeViewModel(application: Application) : AndroidViewModel(application) {
                         load()
                     }
                 }
+                // An event deleted, or its delete undone
+                launch { app.deletes.hidden.drop(1).collectLatest { load() } }
                 // The first value is what the first load reads anyway
                 choices.choices.drop(1).collectLatest { load() }
             }
@@ -74,7 +76,7 @@ class RangeViewModel(application: Application) : AndroidViewModel(application) {
         if (last < first) return@withLock
         try {
             val shown = CalendarChoices.apply(source.calendars(), choices.choices.first()).filter { it.shown }.mapTo(HashSet()) { it.id }
-            _events.value = LoadedEvents(first, last, source.occurrences(first, last, shown))
+            _events.value = LoadedEvents(first, last, source.occurrences(first, last, shown).filterNot(app.deletes::hides))
         } catch (_: SecurityException) {
             // Access was taken away; the main screen says so when it comes to the front
             _events.value = LoadedEvents.NONE

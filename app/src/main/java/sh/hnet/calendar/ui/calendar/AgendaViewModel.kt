@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -73,6 +74,10 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
                     reload()
                 }
             }
+        }
+        // An event deleted, or its delete undone: out of the list and back at once
+        viewModelScope.launch {
+            app.deletes.hidden.drop(1).collectLatest { if (_state.value is CalendarState.Ready) reload() }
         }
         // The minute turns: events end, and at midnight today moves on
         viewModelScope.launch {
@@ -184,7 +189,7 @@ class AgendaViewModel(application: Application) : AndroidViewModel(application) 
                 return
             }
             shown = calendars.filter { it.shown }.mapTo(HashSet()) { it.id }
-            val days = Agenda.build(source.occurrences(firstDay, lastDay, shown), firstDay, lastDay, today, anchor = anchor)
+            val days = Agenda.build(source.occurrences(firstDay, lastDay, shown).filterNot(app.deletes::hides), firstDay, lastDay, today, anchor = anchor)
             _state.value = CalendarState.Ready(days, calendars.associateBy { it.id }, anchor, today, System.currentTimeMillis(), zone)
         } catch (_: SecurityException) {
             // Access was taken away between the check and the query

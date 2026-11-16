@@ -17,4 +17,10 @@ class MainActivity : ComponentActivity() {
             CalendarTheme { CalendarApp() }
         }
     }
+
+    /** The app leaves the screen: a delete still offering Undo is carried out, as nobody is left to undo it (the owner, 15 Nov 2026). */
+    override fun onStop() {
+        super.onStop()
+        (application as CalendarApplication).deletes.commit()
+    }
 }

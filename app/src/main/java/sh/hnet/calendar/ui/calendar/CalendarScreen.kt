@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,6 +27,7 @@ import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
@@ -68,6 +70,7 @@ import sh.hnet.calendar.ViewSettings
 import sh.hnet.calendar.model.CalendarView
 import sh.hnet.calendar.model.JulianDay
 import sh.hnet.calendar.model.Month
+import sh.hnet.calendar.model.Occurrence
 import sh.hnet.calendar.ui.components.CalendarAccess
 import sh.hnet.calendar.ui.components.EmptyState
 import sh.hnet.calendar.ui.components.MenuItem
@@ -80,7 +83,7 @@ import sh.hnet.calendar.ui.components.rememberCalendarAccessAsk
  * Search and the new-event button come with their stages.
  */
 @Composable
-fun CalendarScreen(onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel = viewModel()) {
+fun CalendarScreen(onOpenEvent: (Occurrence) -> Unit, onNewEvent: (day: Int, minute: Int) -> Unit, onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Back from the system's settings or its permission dialog: the answer may have changed
     LifecycleResumeEffect(viewModel) {
@@ -93,7 +96,7 @@ fun CalendarScreen(onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, view
     val ready = state as? CalendarState.Ready
     val current = settings
     if (ready != null && current != null) {
-        CalendarViews(ready, current, onOpenCalendars, onOpenSettings, viewModel)
+        CalendarViews(ready, current, onOpenEvent, onNewEvent, onOpenCalendars, onOpenSettings, viewModel)
         return
     }
     Column(Modifier.fillMaxSize()) {
@@ -123,7 +126,7 @@ private const val HISTORY_LIMIT = 10
  * view, and a day opened from Month or Week, is a step that Back retraces (SPEC §3.9).
  */
 @Composable
-private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel) {
+private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, onOpenEvent: (Occurrence) -> Unit, onNewEvent: (day: Int, minute: Int) -> Unit, onOpenCalendars: () -> Unit, onOpenSettings: () -> Unit, viewModel: AgendaViewModel) {
     val eventList = settings.eventList
     val preferences = (LocalContext.current.applicationContext as CalendarApplication).preferences
     val scope = rememberCoroutineScope()
@@ -202,6 +205,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
                 }
             },
         )
+        Box(Modifier.fillMaxSize()) {
         Crossfade(view, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), modifier = Modifier.fillMaxSize()) { shown ->
             when (shown) {
                 CalendarView.MONTH -> MonthView(
@@ -213,6 +217,7 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
                     focus = focus,
                     onFocus = { focus = it },
                     onOpenDay = { open(CalendarView.DAY, it) },
+                    onOpenEvent = onOpenEvent,
                 )
                 CalendarView.WEEK -> WeekView(
                     state = state,
@@ -224,11 +229,23 @@ private fun CalendarViews(state: CalendarState.Ready, settings: ViewSettings, on
                     onFocus = { focus = it },
                     // The hours stay where they are
                     onOpenDay = { open(CalendarView.DAY, it, place = false) },
+                    onOpenEvent = onOpenEvent,
+                    onNewEvent = onNewEvent,
                     onZoomed = onZoomed,
                 )
-                CalendarView.DAY -> DayView(state, formats, weekStart, dayPager, hours, focus, onFocus = { focus = it }, onZoomed = onZoomed)
-                CalendarView.AGENDA -> AgendaList(state, formats, target = focus, jump = jump, onDay = { if (view == CalendarView.AGENDA) focus = it }, onNearEnd = viewModel::extend)
+                CalendarView.DAY -> DayView(state, formats, weekStart, dayPager, hours, focus, onFocus = { focus = it }, onOpenEvent = onOpenEvent, onNewEvent = onNewEvent, onZoomed = onZoomed)
+                CalendarView.AGENDA -> AgendaList(state, formats, target = focus, jump = jump, onDay = { if (view == CalendarView.AGENDA) focus = it }, onNearEnd = viewModel::extend, onOpenEvent = onOpenEvent)
             }
+        }
+        // New event (SPEC §3.5), where there is a calendar to write to. On the day shown in Day and chosen in Month's list, else today
+        if (state.calendars.values.any { it.writable }) {
+            FloatingActionButton(
+                onClick = { onNewEvent(if (view == CalendarView.DAY || (view == CalendarView.MONTH && eventList)) focus else 0, -1) },
+                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp),
+            ) {
+                Icon(painterResource(R.drawable.ic_add), contentDescription = stringResource(R.string.content_description_new_event))
+            }
+        }
         }
     }
 

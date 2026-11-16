@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -35,6 +36,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -44,6 +47,10 @@ import sh.hnet.calendar.about.WhatsNew
 import sh.hnet.calendar.ui.calendar.CalendarScreen
 import sh.hnet.calendar.ui.calendars.CalendarsScreen
 import sh.hnet.calendar.ui.components.CalendarAccess
+import sh.hnet.calendar.ui.components.ErrorDetails
+import sh.hnet.calendar.ui.components.ErrorDetailsDialog
+import sh.hnet.calendar.ui.event.EditorScreen
+import sh.hnet.calendar.ui.event.EventScreen
 import sh.hnet.calendar.ui.settings.AboutScreen
 import sh.hnet.calendar.ui.settings.AppLicenseScreen
 import sh.hnet.calendar.ui.settings.LanguageScreen
@@ -78,6 +85,11 @@ fun CalendarApp() {
     }
 
     val app = appContext as CalendarApplication
+    val messages = rememberCoroutineScope()
+    val deleted = stringResource(R.string.msg_event_deleted)
+    val undo = stringResource(R.string.button_undo)
+    val saved = stringResource(R.string.msg_event_saved)
+    var error by remember { mutableStateOf<ErrorDetails?>(null) }
     var welcome by rememberSaveable { mutableStateOf(!CalendarAccess.welcomeSeen(appContext) && !app.calendars.hasAccess()) }
 
     val motion = MaterialTheme.motionScheme
@@ -108,7 +120,56 @@ fun CalendarApp() {
                         (slideOutHorizontally(spatial) { shift } + fadeOut(fastEffects))
                 },
                 entryProvider = entryProvider<NavKey> {
-                    entry<Screen.Calendar> { CalendarScreen(onOpenCalendars = { open(Screen.Calendars) }, onOpenSettings = { open(Screen.Settings) }) }
+                    entry<Screen.Calendar> {
+                        CalendarScreen(
+                            onOpenEvent = { open(Screen.Event(it.eventId, it.begin, it.end)) },
+                            onNewEvent = { day, minute -> open(Screen.Editor(day = day, minute = minute, session = System.nanoTime())) },
+                            onOpenCalendars = { open(Screen.Calendars) },
+                            onOpenSettings = { open(Screen.Settings) },
+                        )
+                    }
+                    entry<Screen.Event> { event ->
+                        EventScreen(
+                            event.eventId, event.begin, event.end, snackbars,
+                            onBack = back,
+                            onEdit = { open(Screen.Editor(event.eventId, event.begin, event.end, session = System.nanoTime())) },
+                            onDuplicate = { open(Screen.Editor(event.eventId, event.begin, event.end, copy = true, session = System.nanoTime())) },
+                            onDelete = { delete ->
+                                back()
+                                // Out of every view at once; the provider hears of it when the snackbar has gone (SPEC §2.5)
+                                app.deletes.delete(delete)
+                                messages.launch {
+                                    snackbars.currentSnackbarData?.dismiss()
+                                    // Carried out elsewhere meanwhile (the app left the screen, another delete): Undo has nothing left to offer
+                                    val watch = launch {
+                                        app.deletes.waiting.first { it != delete }
+                                        snackbars.currentSnackbarData?.dismiss()
+                                    }
+                                    val result = snackbars.showSnackbar(deleted, actionLabel = undo, duration = SnackbarDuration.Short)
+                                    watch.cancel()
+                                    if (app.deletes.waiting.value == delete) {
+                                        if (result == SnackbarResult.ActionPerformed) app.deletes.undo() else app.deletes.commit()
+                                    }
+                                }
+                            },
+                        )
+                    }
+                    entry<Screen.Editor> { editor ->
+                        EditorScreen(
+                            editor, snackbars,
+                            onClose = back,
+                            onSaved = { edited ->
+                                back()
+                                // The page of an event that was changed shows an occurrence that may be no more
+                                if (edited) while (stack.lastOrNull() is Screen.Event) back()
+                                messages.launch {
+                                    snackbars.currentSnackbarData?.dismiss()
+                                    snackbars.showSnackbar(saved, duration = SnackbarDuration.Short)
+                                }
+                            },
+                            onShowError = { error = it },
+                        )
+                    }
                     entry<Screen.Settings> {
                         SettingsRootScreen(
                             onBack = back,
@@ -141,6 +202,7 @@ fun CalendarApp() {
                     welcome = false
                 })
             }
+            error?.let { ErrorDetailsDialog(it, onDismiss = { error = null }) }
             // One host for every page, above the system's navigation area
             SnackbarHost(snackbars, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) { data ->
                 Snackbar(data, shape = MaterialTheme.shapes.extraLarge, modifier = Modifier.padding(horizontal = 12.dp))

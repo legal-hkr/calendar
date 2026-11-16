@@ -56,6 +56,7 @@ import sh.hnet.calendar.model.AgendaDay
 import sh.hnet.calendar.model.AgendaRow
 import sh.hnet.calendar.model.CalendarColor
 import sh.hnet.calendar.model.JulianDay
+import sh.hnet.calendar.model.Occurrence
 import sh.hnet.calendar.model.RowTime
 import sh.hnet.calendar.ui.theme.dimmedFill
 import sh.hnet.calendar.ui.theme.fill
@@ -94,10 +95,10 @@ private fun items(days: List<AgendaDay>): List<AgendaItem> = buildList {
  * Agenda (SPEC §8, board 05): days with their events as segmented groups, endless both ways –
  * [onNearEnd] asks for more days (true: later ones) when the list nears an end. It goes to the day
  * [target] whenever [jump] changes, once the state names that day as its anchor – so it opens on
- * today –, and tells [onDay] the day it is at.
+ * today –, and tells [onDay] the day it is at. A tap on a row calls [onOpenEvent].
  */
 @Composable
-fun AgendaList(state: CalendarState.Ready, formats: CalendarFormats, target: Int, jump: Int, onDay: (Int) -> Unit, onNearEnd: (later: Boolean) -> Unit) {
+fun AgendaList(state: CalendarState.Ready, formats: CalendarFormats, target: Int, jump: Int, onDay: (Int) -> Unit, onNearEnd: (later: Boolean) -> Unit, onOpenEvent: (Occurrence) -> Unit) {
     val items = remember(state.days) { items(state.days) }
     val list = rememberLazyListState()
     val currentState by rememberUpdatedState(state)
@@ -151,6 +152,7 @@ fun AgendaList(state: CalendarState.Ready, formats: CalendarFormats, target: Int
                         past = item.row.occurrence.isPast(state.now, state.today),
                         formats = formats,
                         shape = groupShape(item.first, item.last),
+                        onClick = { onOpenEvent(item.row.occurrence) },
                         modifier = Modifier.padding(top = if (item.first) 0.dp else 2.dp),
                     )
                 }
@@ -198,7 +200,7 @@ internal fun groupShape(first: Boolean, last: Boolean): Shape {
  * line under it – the state when it has one to tell, else which day of several, else the place.
  */
 @Composable
-internal fun EventRow(row: AgendaRow, color: CalendarColor, past: Boolean, formats: CalendarFormats, shape: Shape, modifier: Modifier = Modifier) {
+internal fun EventRow(row: AgendaRow, color: CalendarColor, past: Boolean, formats: CalendarFormats, shape: Shape, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val occurrence = row.occurrence
     val supporting = when {
         occurrence.canceled -> stringResource(R.string.label_state_canceled)
@@ -206,7 +208,7 @@ internal fun EventRow(row: AgendaRow, color: CalendarColor, past: Boolean, forma
         row.multiDay -> stringResource(R.string.label_day_of_days, row.dayNumber, row.dayCount)
         else -> occurrence.location.lineSequence().firstOrNull().orEmpty()
     }
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = shape, modifier = modifier.fillMaxWidth()) {
+    Surface(onClick = onClick, color = MaterialTheme.colorScheme.surfaceContainer, shape = shape, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.heightIn(min = 56.dp).height(IntrinsicSize.Min).padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 when (row.time) {

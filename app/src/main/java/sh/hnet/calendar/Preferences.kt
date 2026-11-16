@@ -41,6 +41,13 @@ class Preferences(private val context: Context) {
         context.settings.edit { it[EVENT_LIST] = on }
     }
 
+    /** The calendar the last new event went to ([sh.hnet.calendar.model.CalendarInfo.key]), where the next one starts. */
+    val lastCalendar: Flow<String?> = context.settings.data.map { it[LAST_CALENDAR] }.distinctUntilChanged()
+
+    suspend fun setLastCalendar(key: String) {
+        context.settings.edit { it[LAST_CALENDAR] = key }
+    }
+
     suspend fun setHourHeight(dp: Float) {
         context.settings.edit { it[HOUR_HEIGHT] = dp }
     }
@@ -52,5 +59,6 @@ class Preferences(private val context: Context) {
         val VIEW = stringPreferencesKey("view")
         val EVENT_LIST = booleanPreferencesKey("event_list")
         val HOUR_HEIGHT = floatPreferencesKey("hour_height")
+        val LAST_CALENDAR = stringPreferencesKey("last_calendar")
     }
 }

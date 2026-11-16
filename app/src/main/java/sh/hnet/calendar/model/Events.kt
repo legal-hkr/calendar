@@ -56,6 +56,8 @@ data class Occurrence(
     val endDay: Int,
     val status: EventStatus = EventStatus.CONFIRMED,
     val answer: Answer = Answer.NONE,
+    /** For an occurrence that was changed on its own: the id of the series it belongs to; else 0. */
+    val originalId: Long = 0,
 ) {
     val tentative: Boolean get() = status == EventStatus.TENTATIVE || answer == Answer.TENTATIVE
     val canceled: Boolean get() = status == EventStatus.CANCELED

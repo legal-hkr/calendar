@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -58,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -66,6 +68,7 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -180,6 +183,8 @@ fun WeekView(
     focus: Int,
     onFocus: (Int) -> Unit,
     onOpenDay: (Int) -> Unit,
+    onOpenEvent: (Occurrence) -> Unit,
+    onNewEvent: (day: Int, minute: Int) -> Unit,
     onZoomed: (Float) -> Unit,
     viewModel: RangeViewModel = viewModel(key = "week"),
 ) {
@@ -209,7 +214,7 @@ fun WeekView(
         }
         Column(Modifier.fillMaxSize()) {
             DaysHeader(first, chosen = null, today = state.today, formats = formats, gutter = WEEK_GUTTER, onDay = onOpenDay)
-            WeekStrip(strip, state, palette, onMore = { onOpenDay(first + it) })
+            WeekStrip(strip, state, palette, onOpenEvent, onMore = { onOpenDay(first + it) })
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             HoursPane(hours, current = pager.currentPage == page, onZoomed = onZoomed) {
                 Row(Modifier.fillMaxWidth()) {
@@ -217,8 +222,8 @@ fun WeekView(
                     Row(Modifier.weight(1f).hourLines(hours)) {
                         days.forEachIndexed { column, layout ->
                             val day = first + column
-                            DayColumn(hours, layout, Modifier.weight(1f).nowLine(hours, state, day == state.today)) {
-                                for (tile in layout.tiles) WeekTile(tile, state, palette, formats)
+                            DayColumn(hours, layout, Modifier.weight(1f).nowLine(hours, state, day == state.today), onLongPress = { onNewEvent(day, it) }) {
+                                for (tile in layout.tiles) WeekTile(tile, state, palette, formats, onOpenEvent)
                                 for (mark in layout.more) MoreChip(mark.count, onClick = { onOpenDay(day) })
                             }
                         }
@@ -243,6 +248,8 @@ fun DayView(
     hours: HoursState,
     focus: Int,
     onFocus: (Int) -> Unit,
+    onOpenEvent: (Occurrence) -> Unit,
+    onNewEvent: (day: Int, minute: Int) -> Unit,
     onZoomed: (Float) -> Unit,
     viewModel: RangeViewModel = viewModel(key = "day"),
 ) {
@@ -270,7 +277,7 @@ fun DayView(
                 Days.layout(if (loaded) Days.segments(events.occurrences, day, state.zone) else emptyList(), DAY_MIN_HEIGHT * 60f / hourDp)
             }
             Column(Modifier.fillMaxSize()) {
-                DayStrip(day, strip, state, palette)
+                DayStrip(day, strip, state, palette, onOpenEvent)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 HoursPane(hours, current = pager.currentPage == page, onZoomed = onZoomed) {
                     Row(Modifier.fillMaxWidth()) {
@@ -282,8 +289,8 @@ fun DayView(
                             val width = if (layout.columns <= DAY_COLUMNS) maxWidth else maxOf(maxWidth / (DAY_COLUMNS + DAY_PEEK), DAY_MIN_COLUMN) * layout.columns
                             // Only then, so a swipe in an ordinary day goes straight to the pager
                             Box(if (width > maxWidth) Modifier.nestedScroll(remember { KeepToItself() }).horizontalScroll(rememberScrollState()) else Modifier) {
-                                DayColumn(hours, layout, Modifier.width(width)) {
-                                    for (tile in layout.tiles) DayTile(tile, state, palette, formats)
+                                DayColumn(hours, layout, Modifier.width(width), onLongPress = { onNewEvent(day, it) }) {
+                                    for (tile in layout.tiles) DayTile(tile, state, palette, formats, onOpenEvent)
                                 }
                             }
                         }
@@ -457,10 +464,20 @@ private fun Modifier.nowLine(hours: HoursState, state: CalendarState.Ready, toda
 /**
  * A day's column of hours: the children – one per tile of [layout], then one per "+N" mark, in
  * that order – are placed by their minutes and columns (SPEC §7.5): 2 dp less than the slot, 1 dp at the sides.
+ * [onLongPress] gets the minute of the day at which an empty place was pressed long, at the full hour.
  */
 @Composable
-private fun DayColumn(hours: HoursState, layout: DayLayout, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Layout(content, modifier) { measurables, constraints ->
+private fun DayColumn(hours: HoursState, layout: DayLayout, modifier: Modifier = Modifier, onLongPress: (minute: Int) -> Unit, content: @Composable () -> Unit) {
+    val haptics = LocalHapticFeedback.current
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
+    // A long press on an empty place starts an event at that hour (SPEC §3.5); the tiles take their own touches
+    val press = Modifier.pointerInput(hours) {
+        detectTapGestures(onLongPress = { at ->
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            currentOnLongPress((at.y / hours.hourHeight.floatValue.dp.toPx()).toInt().coerceIn(0, 23) * 60)
+        })
+    }
+    Layout(content, modifier.then(press)) { measurables, constraints ->
         val hour = hours.hourHeight.floatValue.dp.toPx()
         val side = 1.dp.roundToPx()
         val gap = TILE_GAP.dp.roundToPx()
@@ -507,7 +524,7 @@ private fun colors(occurrence: Occurrence, state: CalendarState.Ready, palette: 
  * line the title alone, clipped. The lines follow from the height the column gives it.
  */
 @Composable
-private fun WeekTile(placed: PlacedSegment, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats) {
+private fun WeekTile(placed: PlacedSegment, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats, onOpen: (Occurrence) -> Unit) {
     val occurrence = placed.segment.occurrence
     val colors = colors(occurrence, state, palette)
     val outlined = occurrence.tentative && !occurrence.canceled
@@ -521,7 +538,7 @@ private fun WeekTile(placed: PlacedSegment, state: CalendarState.Ready, palette:
             Text(title, style = titleStyle, overflow = TextOverflow.Clip)
             Text(title, style = titleStyle, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
         },
-        modifier = Modifier.clipToBounds().tileGround(colors, outlined, dimmed, radius = 4.dp, stroke = 1.dp),
+        modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { onOpen(occurrence) }.tileGround(colors, outlined, dimmed, radius = 4.dp, stroke = 1.dp),
     ) { measurables, constraints ->
         val width = constraints.maxWidth
         val height = constraints.maxHeight
@@ -551,7 +568,7 @@ private fun WeekTile(placed: PlacedSegment, state: CalendarState.Ready, palette:
  * hour or less has its time after the title.
  */
 @Composable
-private fun DayTile(placed: PlacedSegment, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats) {
+private fun DayTile(placed: PlacedSegment, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, formats: CalendarFormats, onOpen: (Occurrence) -> Unit) {
     val occurrence = placed.segment.occurrence
     val colors = colors(occurrence, state, palette)
     val outlined = occurrence.tentative && !occurrence.canceled
@@ -573,7 +590,7 @@ private fun DayTile(placed: PlacedSegment, state: CalendarState.Ready, palette: 
             )
             Text(supporting, style = MaterialTheme.typography.bodySmall, color = ink, textDecoration = decoration, maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
-        modifier = Modifier.clipToBounds().tileGround(colors, outlined, dimmed, radius = 8.dp, stroke = 1.5.dp),
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onOpen(occurrence) }.tileGround(colors, outlined, dimmed, radius = 8.dp, stroke = 1.5.dp),
     ) { measurables, constraints ->
         val width = constraints.maxWidth
         val height = constraints.maxHeight
@@ -602,12 +619,12 @@ private fun MoreChip(count: Int, onClick: () -> Unit) {
 
 /** A tile of the all-day strip (SPEC §7.2): 18 dp, the title on one line. */
 @Composable
-private fun StripTile(occurrence: Occurrence, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, modifier: Modifier = Modifier, flatStart: Boolean = false, flatEnd: Boolean = false) {
+private fun StripTile(occurrence: Occurrence, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, onOpen: (Occurrence) -> Unit, modifier: Modifier = Modifier, flatStart: Boolean = false, flatEnd: Boolean = false) {
     val colors = colors(occurrence, state, palette)
     val outlined = occurrence.tentative && !occurrence.canceled
     val dimmed = occurrence.canceled || occurrence.isPast(state.now, state.today)
     Box(
-        modifier.height(STRIP_TILE).clipToBounds().tileGround(colors, outlined, dimmed, radius = 4.dp, stroke = 1.dp, flatStart = flatStart, flatEnd = flatEnd).padding(horizontal = 3.dp),
+        modifier.height(STRIP_TILE).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { onOpen(occurrence) }.tileGround(colors, outlined, dimmed, radius = 4.dp, stroke = 1.dp, flatStart = flatStart, flatEnd = flatEnd).padding(horizontal = 3.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(
@@ -634,13 +651,13 @@ private fun StripMore(count: Int, onClick: () -> Unit, modifier: Modifier = Modi
  * has more, the last row's place there says "+N", and a tap ([onMore], with the column) opens the day.
  */
 @Composable
-private fun WeekStrip(week: MonthWeek, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, onMore: (Int) -> Unit) {
+private fun WeekStrip(week: MonthWeek, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, onOpen: (Occurrence) -> Unit, onMore: (Int) -> Unit) {
     val fill = remember(week) { Month.fill(week, WEEK_STRIP_ROWS) }
     val more = (0 until 7).filter { fill.cells[it].more > 0 }
     val rows = if (more.isNotEmpty()) WEEK_STRIP_ROWS else (fill.bars.maxOfOrNull { it.lane } ?: -1) + 1
     Layout(
         content = {
-            for (bar in fill.bars) StripTile(bar.occurrence, state, palette, flatStart = bar.startsBefore, flatEnd = bar.endsAfter)
+            for (bar in fill.bars) StripTile(bar.occurrence, state, palette, onOpen, flatStart = bar.startsBefore, flatEnd = bar.endsAfter)
             for (column in more) StripMore(fill.cells[column].more, onClick = { onMore(column) })
         },
         modifier = Modifier.fillMaxWidth().padding(start = WEEK_GUTTER),
@@ -667,14 +684,14 @@ private fun WeekStrip(week: MonthWeek, state: CalendarState.Ready, palette: Map<
  * tap opens the strip to all of them.
  */
 @Composable
-private fun DayStrip(day: Int, events: List<Occurrence>, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>) {
+private fun DayStrip(day: Int, events: List<Occurrence>, state: CalendarState.Ready, palette: Map<CalendarColor, TileColors>, onOpen: (Occurrence) -> Unit) {
     if (events.isEmpty()) return
     var open by rememberSaveable(day) { mutableStateOf(false) }
     val all = open || events.size <= DAY_STRIP_ROWS
     val shown = if (all) events else events.take(DAY_STRIP_ROWS - 1)
     Column(Modifier.fillMaxWidth().padding(start = DAY_GUTTER, end = 1.dp, bottom = TILE_GAP.dp)) {
         for (event in shown) {
-            StripTile(event, state, palette, Modifier.fillMaxWidth())
+            StripTile(event, state, palette, onOpen, Modifier.fillMaxWidth())
             Spacer(Modifier.height(TILE_GAP.dp))
         }
         if (!all) StripMore(events.size - shown.size, onClick = { open = true }, modifier = Modifier.fillMaxWidth())
